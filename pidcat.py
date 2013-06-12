@@ -113,7 +113,7 @@ PID_DEATH = re.compile(r'^\rProcess ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 
 input = os.popen('adb logcat')
-pid = None
+pids = set()
 
 while True:
   try:
@@ -132,7 +132,7 @@ while True:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
       if line_package == package:
-        pid = line_pid
+        pids.add(line_pid)
 
         linebuf  = '\n\n\n'
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
@@ -145,9 +145,7 @@ while True:
     kill = PID_KILL.match(message)
     if kill is not None:
       line_pid, line_package, reason = kill.groups()
-      if 'ActivityManager' == tag and pid == line_pid and package == line_package:
-        pid = None
-
+      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
         linebuf  = '\n'
         linebuf += colorize(' ' * (header_size - 1), bg=RED)
         linebuf += ' Process killed because %s' % reason
@@ -157,15 +155,13 @@ while True:
     death = PID_DEATH.match(message)
     if death is not None:
       line_package, line_pid = death.groups()
-      if 'ActivityManager' == tag and pid == line_pid and package == line_package:
-        pid = None
-
+      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
         linebuf  = '\n'
         linebuf += colorize(' ' * (header_size - 1), bg=RED)
         linebuf += ' Process killed because no longer wanted\n\n\n'
         print linebuf
 
-    if pid is None or owner != pid:
+    if owner not in pids:
       continue
 
     linebuf = ''
