@@ -35,10 +35,7 @@ parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, defa
 
 args = parser.parse_args()
 
-tag_width = args.tag_width
-package = args.package
-
-header_size = tag_width + 1 + 3 + 1 # space, level, space
+header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
@@ -151,7 +148,7 @@ while True:
     if start is not None:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
-      if line_package == package:
+      if line_package == args.package:
         pids.add(line_pid)
 
         linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
@@ -178,7 +175,7 @@ while True:
     # right-align tag title and allocate color if needed
     tag = tag.strip()
     color = allocate_color(tag)
-    tag = tag[-tag_width:].rjust(tag_width)
+    tag = tag[-args.tag_width:].rjust(args.tag_width)
     linebuf += colorize(tag, fg=color)
     linebuf += ' '
 
