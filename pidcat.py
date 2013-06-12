@@ -21,26 +21,27 @@ limitations under the License.
 # Piping detection and popen() added by other Android team members
 # Package name restriction by Jake Wharton, http://jakewharton.com
 
-import os, sys, re, fcntl, termios, struct
-from StringIO import StringIO
+import argparse
+import os
+import sys
+import re
+import fcntl
+import termios
+import struct
 
-if len(sys.argv) < 2:
-    print 'Target package name required.'
-    print
-    print 'Usage: %s com.example.foo' % sys.argv[0]
-    sys.exit(1)
-package = sys.argv[1]
-TAG_WIDTH = 22
-message_colored = True
+parser = argparse.ArgumentParser(description='Filter logcat by package name')
+parser.add_argument('package', help='Application package name')
+parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 
-if len(sys.argv) == 3:
-    TAG_WIDTH = int(sys.argv[2])
+args = parser.parse_args()
 
+tag_width = args.tag_width
+package = args.package
+
+header_size = tag_width + 1 + 3 + 1 # space, level, space
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
 HEIGHT, WIDTH = struct.unpack('hh',data)
-
-HEADER_SIZE = TAG_WIDTH + 1 + 3 + 1 # space, level, space
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
@@ -57,16 +58,17 @@ def colorize(message, fg=None, bg=None):
   return ret
 
 def indent_wrap(message):
-  wrap_area = WIDTH - HEADER_SIZE
-  messagebuf = StringIO()
+  wrap_area = WIDTH - header_size
+  messagebuf = ''
   current = 0
   while current < len(message):
     next = min(current + wrap_area, len(message))
-    messagebuf.write(message[current:next])
+    messagebuf += message[current:next]
     if next < len(message):
-      messagebuf.write('\n%s' % (' ' * HEADER_SIZE))
+      messagebuf += '\n'
+      messagebuf += ' ' * header_size
     current = next
-  return messagebuf.getvalue()
+  return messagebuf
 
 
 LAST_USED = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
@@ -113,16 +115,19 @@ TAGTYPES = {
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
-PID_DEATH = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
+PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
+PID_DEATH = re.compile(r'^\rProcess ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 
 input = os.popen('adb logcat')
-pid = None
+pids = set()
 
 while True:
   try:
     line = input.readline()
   except KeyboardInterrupt:
+    break
+  if len(line) == 0:
     break
 
   log_line = LOG_LINE.match(line)
@@ -134,75 +139,56 @@ while True:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
       if line_package == package:
-        pid = line_pid
+        pids.add(line_pid)
 
-        linebuf = StringIO()
-        linebuf.write('\n' * 3)
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
-        linebuf.write(indent_wrap(' Process created for %s\n' % target))
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
-        linebuf.write(' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids))
-        linebuf.write('\n')
-
-        print linebuf.getvalue()
+        linebuf  = '\n\n\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+        linebuf += indent_wrap(' Process created for %s\n' % target)
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+        linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
+        linebuf += '\n'
+        print linebuf
 
     kill = PID_KILL.match(message)
     if kill is not None:
       line_pid, line_package, reason = kill.groups()
-      if 'ActivityManager' == tag and pid == line_pid and package == line_package:
-        pid = None
-
-        linebuf = StringIO()
-        linebuf.write('\n')
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Process killed because %s' % reason)
-        linebuf.write('\n' * 3)
-
-        print linebuf.getvalue()
+      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=RED)
+        linebuf += ' Process killed because %s' % reason
+        linebuf += '\n\n\n'
+        print linebuf
 
     death = PID_DEATH.match(message)
     if death is not None:
       line_package, line_pid = death.groups()
-      if 'ActivityManager' == tag and pid == line_pid and package == line_package:
-        pid = None
+      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=RED)
+        linebuf += ' Process killed because no longer wanted\n\n\n'
+        print linebuf
 
-        linebuf = StringIO()
-        linebuf.write('\n')
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Process killed because no longer wanted')
-        linebuf.write('\n' * 3)
-
-        print linebuf.getvalue()
-
-    if pid is None or owner != pid:
+    if owner not in pids:
       continue
 
-    linebuf = StringIO()
+    linebuf = ''
 
     # right-align tag title and allocate color if needed
     tag = tag.strip()
     color = allocate_color(tag)
-    tag = tag[-TAG_WIDTH:].rjust(TAG_WIDTH)
-    linebuf.write(colorize(tag, fg=color))
-    linebuf.write(' ')
+    tag = tag[-tag_width:].rjust(tag_width)
+    linebuf += colorize(tag, fg=color)
+    linebuf += ' '
 
     # write out level colored edge
     if level not in TAGTYPES: break
-    linebuf.write(TAGTYPES[level])
-    linebuf.write(' ')
+    linebuf += TAGTYPES[level]
+    linebuf += ' '
 
     # format tag message using rules
     for matcher in RULES:
       replace = RULES[matcher]
       message = matcher.sub(replace, message)
-        
-    if message_colored and (level is 'E' or level is 'W'):
-       linebuf.write(colorize(indent_wrap(message), fg=TAGCOLORS[level]))
-    else:
-       linebuf.write(indent_wrap(message))
-    line = linebuf.getvalue()
-        
-  print line
-  if len(line) == 0:
-    input = os.popen('adb wait-for-device')
-    input = os.popen('adb logcat')
+
+    linebuf += indent_wrap(message)
+    print linebuf
