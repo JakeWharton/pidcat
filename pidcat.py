@@ -31,6 +31,7 @@ if len(sys.argv) < 2:
     sys.exit(1)
 package = sys.argv[1]
 TAG_WIDTH = 22
+message_colored = True
 
 if len(sys.argv) == 3:
     TAG_WIDTH = int(sys.argv[2])
@@ -94,12 +95,20 @@ RULES = {
   #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
 }
 
+TAGCOLORS = {
+    'V': BLACK,
+    'D': BLUE,
+    'I': GREEN,
+    'W': YELLOW,
+    'E': RED,
+}
+
 TAGTYPES = {
-  'V': colorize(' V ', fg=WHITE, bg=BLACK),
-  'D': colorize(' D ', fg=BLACK, bg=BLUE),
-  'I': colorize(' I ', fg=BLACK, bg=GREEN),
-  'W': colorize(' W ', fg=BLACK, bg=YELLOW),
-  'E': colorize(' E ', fg=BLACK, bg=RED),
+  'V': colorize(' V ', fg=WHITE, bg=TAGCOLORS['V']),
+  'D': colorize(' D ', fg=BLACK, bg=TAGCOLORS['D']),
+  'I': colorize(' I ', fg=BLACK, bg=TAGCOLORS['I']),
+  'W': colorize(' W ', fg=BLACK, bg=TAGCOLORS['W']),
+  'E': colorize(' E ', fg=BLACK, bg=TAGCOLORS['E']),
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
@@ -186,9 +195,12 @@ while True:
     for matcher in RULES:
       replace = RULES[matcher]
       message = matcher.sub(replace, message)
-
-    linebuf.write(indent_wrap(message))
+        
+    if message_colored and (level is 'E' or level is 'W'):
+       linebuf.write(colorize(indent_wrap(message), fg=TAGCOLORS[level]))
+    else:
+       linebuf.write(indent_wrap(message))
     line = linebuf.getvalue()
-
+        
   print line
   if len(line) == 0: break
