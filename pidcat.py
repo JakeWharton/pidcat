@@ -127,7 +127,7 @@ while True:
         linebuf = StringIO()
         linebuf.write('\n' * 3)
         linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
-        linebuf.write(' Starting for %s\n' % target)
+        linebuf.write(indent_wrap(' Process created for %s\n' % target))
         linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
         linebuf.write(' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids))
         linebuf.write('\n')
@@ -143,7 +143,7 @@ while True:
         linebuf = StringIO()
         linebuf.write('\n')
         linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Killing because %s' % reason)
+        linebuf.write(' Process killed because %s' % reason)
         linebuf.write('\n' * 3)
 
         print linebuf.getvalue()
@@ -157,7 +157,7 @@ while True:
         linebuf = StringIO()
         linebuf.write('\n')
         linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Killing because no longer wanted')
+        linebuf.write(' Process killed because no longer wanted')
         linebuf.write('\n' * 3)
 
         print linebuf.getvalue()
