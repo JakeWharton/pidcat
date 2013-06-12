@@ -15,7 +15,7 @@ convenient development process.
     ./pidcat.py com.oprah.bees.android
 
 
-Here is an example of the output when running for Twitter and Google Plus
+Here is an example of the output when running for the Google Plus app:
 
 ![Example screen](screen.png)
 
