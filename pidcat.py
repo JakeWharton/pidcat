@@ -38,7 +38,6 @@ args = parser.parse_args()
 tag_width = args.tag_width
 package = args.package
 
-header_size = tag_width + 1 + 3 + 1 # space, level, space
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
 HEIGHT, WIDTH = struct.unpack('hh',data)
@@ -97,20 +96,12 @@ RULES = {
   #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
 }
 
-TAGCOLORS = {
-    'V': BLACK,
-    'D': BLUE,
-    'I': GREEN,
-    'W': YELLOW,
-    'E': RED,
-}
-
 TAGTYPES = {
-  'V': colorize(' V ', fg=WHITE, bg=TAGCOLORS['V']),
-  'D': colorize(' D ', fg=BLACK, bg=TAGCOLORS['D']),
-  'I': colorize(' I ', fg=BLACK, bg=TAGCOLORS['I']),
-  'W': colorize(' W ', fg=BLACK, bg=TAGCOLORS['W']),
-  'E': colorize(' E ', fg=BLACK, bg=TAGCOLORS['E']),
+  'V': colorize(' V ', fg=WHITE, bg=BLACK),
+  'D': colorize(' D ', fg=BLACK, bg=BLUE),
+  'I': colorize(' I ', fg=BLACK, bg=GREEN),
+  'W': colorize(' W ', fg=BLACK, bg=YELLOW),
+  'E': colorize(' E ', fg=BLACK, bg=RED),
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
@@ -128,8 +119,7 @@ while True:
   except KeyboardInterrupt:
     break
   if len(line) == 0:
-    input = os.popen('adb wait-for-device')
-    input = os.popen('adb logcat')
+    break
 
   log_line = LOG_LINE.match(line)
   if not log_line is None:
