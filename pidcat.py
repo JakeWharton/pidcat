@@ -35,6 +35,8 @@ parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, defa
 
 args = parser.parse_args()
 
+package_process = args.package + ':' 
+
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
 # unpack the current terminal width/height
@@ -114,23 +116,26 @@ input = os.popen('adb logcat')
 pids = set()
 last_tag = None
 
+def belongs_package(token):
+  return (token == args.package or (token.find(package_process) != -1));
+
 def parse_death(tag, message):
   if tag != 'ActivityManager':
     return None
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if kill.group(2).find(args.package) != -1 and pid in pids:
+    if belongs_package(kill.group(2)) and pid in pids:
       return pid
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if leave.group(1).find(args.package) != -1 and pid in pids:
+    if belongs_package(leave.group(1)) and pid in pids:
       return pid
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if death.group(1).find(args.package) != -1 and pid in pids:
+    if belongs_package(death.group(1)) and pid in pids:
       return pid
   return None
 
@@ -154,7 +159,7 @@ while True:
     if start is not None:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
-      if line_package.find(args.package) != -1:
+      if belongs_package(line_package):
         pids.add(line_pid)
 
         linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
