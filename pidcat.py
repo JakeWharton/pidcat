@@ -120,6 +120,8 @@ while True:
     line = input.readline()
   except KeyboardInterrupt:
     break
+  if len(line) == 0:
+    break
 
   log_line = LOG_LINE.match(line)
   if not log_line is None:
@@ -186,7 +188,4 @@ while True:
       message = matcher.sub(replace, message)
 
     linebuf += indent_wrap(message)
-    line = linebuf
-
-  print line
-  if len(line) == 0: break
+    print linebuf
