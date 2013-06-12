@@ -164,8 +164,6 @@ while True:
         linebuf += '\n'
         print linebuf
         last_tag = None # Ensure next log gets a tag printed
-      else:
-        print line_package
 
     dead_pid = parse_death(tag, message)
     if dead_pid:
