@@ -154,8 +154,7 @@ while True:
       if line_package == package:
         pids.add(line_pid)
 
-        linebuf  = '\n\n\n'
-        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+        linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += indent_wrap(' Process created for %s\n' % target)
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
@@ -168,7 +167,7 @@ while True:
       linebuf  = '\n'
       linebuf += colorize(' ' * (header_size - 1), bg=RED)
       linebuf += ' Process %s killed' % dead_pid
-      linebuf += '\n\n\n'
+      linebuf += '\n'
       print linebuf
 
     if owner not in pids:
