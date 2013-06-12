@@ -203,6 +203,4 @@ while True:
     line = linebuf.getvalue()
         
   print line
-  if len(line) == 0:
-    input = os.popen('adb wait-for-device')
-    input = os.popen('adb logcat')
+  if len(line) == 0: break
