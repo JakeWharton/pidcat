@@ -108,6 +108,7 @@ PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
+BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
 input = os.popen('adb logcat')
 pids = set()
@@ -140,6 +141,10 @@ while True:
     break
   if len(line) == 0:
     break
+
+  bug_line = BUG_LINE.match(line)
+  if bug_line is None:
+    continue
 
   log_line = LOG_LINE.match(line)
   if not log_line is None:
