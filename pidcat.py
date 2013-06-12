@@ -21,21 +21,28 @@ limitations under the License.
 # Piping detection and popen() added by other Android team members
 # Package name restriction by Jake Wharton, http://jakewharton.com
 
-import os, sys, re, fcntl, termios, struct
+import argparse
+import os
+import sys
+import re
+import fcntl
+import termios
+import struct
 
-if len(sys.argv) != 2:
-  print 'Target package name required.'
-  print
-  print 'Usage: %s com.example.foo' % sys.argv[0]
-  sys.exit(1)
-package = sys.argv[1]
+parser = argparse.ArgumentParser(description='Filter logcat by package name')
+parser.add_argument('package', help='Application package name')
+parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+
+args = parser.parse_args()
+
+tag_width = args.tag_width
+package = args.package
+
+header_size = tag_width + 1 + 3 + 1 # space, level, space
 
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
 HEIGHT, WIDTH = struct.unpack('hh',data)
-
-TAG_WIDTH = 22
-HEADER_SIZE = TAG_WIDTH + 1 + 3 + 1 # space, level, space
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
@@ -52,7 +59,7 @@ def colorize(message, fg=None, bg=None):
   return ret
 
 def indent_wrap(message):
-  wrap_area = WIDTH - HEADER_SIZE
+  wrap_area = WIDTH - header_size
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -60,7 +67,7 @@ def indent_wrap(message):
     messagebuf += message[current:next]
     if next < len(message):
       messagebuf += '\n'
-      messagebuf += ' ' * HEADER_SIZE
+      messagebuf += ' ' * header_size
     current = next
   return messagebuf
 
@@ -126,9 +133,9 @@ while True:
         pid = line_pid
 
         linebuf  = '\n\n\n'
-        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=WHITE)
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += indent_wrap(' Process created for %s\n' % target)
-        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=WHITE)
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
         linebuf += '\n'
         print linebuf
@@ -140,7 +147,7 @@ while True:
         pid = None
 
         linebuf  = '\n'
-        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=RED)
+        linebuf += colorize(' ' * (header_size - 1), bg=RED)
         linebuf += ' Process killed because %s' % reason
         linebuf += '\n\n\n'
         print linebuf
@@ -152,7 +159,7 @@ while True:
         pid = None
 
         linebuf  = '\n'
-        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=RED)
+        linebuf += colorize(' ' * (header_size - 1), bg=RED)
         linebuf += ' Process killed because no longer wanted\n\n\n'
         print linebuf
 
@@ -164,7 +171,7 @@ while True:
     # right-align tag title and allocate color if needed
     tag = tag.strip()
     color = allocate_color(tag)
-    tag = tag[-TAG_WIDTH:].rjust(TAG_WIDTH)
+    tag = tag[-tag_width:].rjust(tag_width)
     linebuf += colorize(tag, fg=color)
     linebuf += ' '
 
