@@ -25,12 +25,12 @@ import os, sys, re, fcntl, termios, struct
 from StringIO import StringIO
 
 if len(sys.argv) < 2:
-  print 'Target package name required.'
-  print
-  print 'Usage: %s com.example.foo' % sys.argv[0]
-  sys.exit(1)
+    print 'Target package name required.'
+    print
+    print 'Usage: %s com.example.foo' % sys.argv[0]
+    sys.exit(1)
 package = sys.argv[1]
-TAG_WIDTH = 40
+TAG_WIDTH = 22
 
 if len(sys.argv) == 3:
     TAG_WIDTH = int(sys.argv[2])
