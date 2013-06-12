@@ -24,18 +24,21 @@ limitations under the License.
 import os, sys, re, fcntl, termios, struct
 from StringIO import StringIO
 
-if len(sys.argv) != 2:
+if len(sys.argv) < 2:
   print 'Target package name required.'
   print
   print 'Usage: %s com.example.foo' % sys.argv[0]
   sys.exit(1)
 package = sys.argv[1]
+TAG_WIDTH = 40
+
+if len(sys.argv) == 3:
+    TAG_WIDTH = int(sys.argv[2])
 
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
 HEIGHT, WIDTH = struct.unpack('hh',data)
 
-TAG_WIDTH = 22
 HEADER_SIZE = TAG_WIDTH + 1 + 3 + 1 # space, level, space
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
