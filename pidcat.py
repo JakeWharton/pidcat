@@ -32,7 +32,6 @@ import struct
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', help='Application package name')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
-parser.add_argument('--tag-dedup', dest='tag_dedup', action='store_true', default=False, help='De-deuplicate log tags')
 
 args = parser.parse_args()
 
@@ -178,7 +177,7 @@ while True:
 
     # right-align tag title and allocate color if needed
     tag = tag.strip()
-    if tag != last_tag or not args.tag_dedup:
+    if tag != last_tag:
       last_tag = tag
       color = allocate_color(tag)
       tag = tag[-args.tag_width:].rjust(args.tag_width)
