@@ -103,7 +103,7 @@ TAGTYPES = {
   'E': colorize(' E ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
+PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
@@ -120,17 +120,17 @@ def parse_death(tag, message):
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if kill.group(2) == args.package and pid in pids:
+    if kill.group(2).find(args.package) != -1 and pid in pids:
       return pid
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if leave.group(1) == args.package and pid in pids:
+    if leave.group(1).find(args.package) != -1 and pid in pids:
       return pid
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if death.group(1) == args.package and pid in pids:
+    if death.group(1).find(args.package) != -1 and pid in pids:
       return pid
   return None
 
@@ -154,7 +154,7 @@ while True:
     if start is not None:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
-      if line_package == args.package:
+      if line_package.find(args.package) != -1:
         pids.add(line_pid)
 
         linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
@@ -164,6 +164,8 @@ while True:
         linebuf += '\n'
         print linebuf
         last_tag = None # Ensure next log gets a tag printed
+      else:
+        print line_package
 
     dead_pid = parse_death(tag, message)
     if dead_pid:
