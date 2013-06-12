@@ -22,7 +22,6 @@ limitations under the License.
 # Package name restriction by Jake Wharton, http://jakewharton.com
 
 import os, sys, re, fcntl, termios, struct
-from StringIO import StringIO
 
 if len(sys.argv) != 2:
   print 'Target package name required.'
@@ -54,15 +53,16 @@ def colorize(message, fg=None, bg=None):
 
 def indent_wrap(message):
   wrap_area = WIDTH - HEADER_SIZE
-  messagebuf = StringIO()
+  messagebuf = ''
   current = 0
   while current < len(message):
     next = min(current + wrap_area, len(message))
-    messagebuf.write(message[current:next])
+    messagebuf += message[current:next]
     if next < len(message):
-      messagebuf.write('\n%s' % (' ' * HEADER_SIZE))
+      messagebuf += '\n'
+      messagebuf += ' ' * HEADER_SIZE
     current = next
-  return messagebuf.getvalue()
+  return messagebuf
 
 
 LAST_USED = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN]
@@ -101,7 +101,8 @@ TAGTYPES = {
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
-PID_DEATH = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
+PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
+PID_DEATH = re.compile(r'^\rProcess ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 
 input = os.popen('adb logcat')
@@ -124,15 +125,13 @@ while True:
       if line_package == package:
         pid = line_pid
 
-        linebuf = StringIO()
-        linebuf.write('\n' * 3)
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
-        linebuf.write(indent_wrap(' Process created for %s\n' % target))
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=WHITE))
-        linebuf.write(' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids))
-        linebuf.write('\n')
-
-        print linebuf.getvalue()
+        linebuf  = '\n\n\n'
+        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=WHITE)
+        linebuf += indent_wrap(' Process created for %s\n' % target)
+        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=WHITE)
+        linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
+        linebuf += '\n'
+        print linebuf
 
     kill = PID_KILL.match(message)
     if kill is not None:
@@ -140,13 +139,11 @@ while True:
       if 'ActivityManager' == tag and pid == line_pid and package == line_package:
         pid = None
 
-        linebuf = StringIO()
-        linebuf.write('\n')
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Process killed because %s' % reason)
-        linebuf.write('\n' * 3)
-
-        print linebuf.getvalue()
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=RED)
+        linebuf += ' Process killed because %s' % reason
+        linebuf += '\n\n\n'
+        print linebuf
 
     death = PID_DEATH.match(message)
     if death is not None:
@@ -154,38 +151,35 @@ while True:
       if 'ActivityManager' == tag and pid == line_pid and package == line_package:
         pid = None
 
-        linebuf = StringIO()
-        linebuf.write('\n')
-        linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' Process killed because no longer wanted')
-        linebuf.write('\n' * 3)
-
-        print linebuf.getvalue()
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (HEADER_SIZE - 1), bg=RED)
+        linebuf += ' Process killed because no longer wanted\n\n\n'
+        print linebuf
 
     if pid is None or owner != pid:
       continue
 
-    linebuf = StringIO()
+    linebuf = ''
 
     # right-align tag title and allocate color if needed
     tag = tag.strip()
     color = allocate_color(tag)
     tag = tag[-TAG_WIDTH:].rjust(TAG_WIDTH)
-    linebuf.write(colorize(tag, fg=color))
-    linebuf.write(' ')
+    linebuf += colorize(tag, fg=color)
+    linebuf += ' '
 
     # write out level colored edge
     if level not in TAGTYPES: break
-    linebuf.write(TAGTYPES[level])
-    linebuf.write(' ')
+    linebuf += TAGTYPES[level]
+    linebuf += ' '
 
     # format tag message using rules
     for matcher in RULES:
       replace = RULES[matcher]
       message = matcher.sub(replace, message)
 
-    linebuf.write(indent_wrap(message))
-    line = linebuf.getvalue()
+    linebuf += indent_wrap(message)
+    line = linebuf
 
   print line
   if len(line) == 0: break
