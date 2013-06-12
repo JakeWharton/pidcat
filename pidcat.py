@@ -165,7 +165,7 @@ while True:
       pids.remove(dead_pid)
       linebuf  = '\n'
       linebuf += colorize(' ' * (header_size - 1), bg=RED)
-      linebuf += ' Process %s killed' % dead_pid
+      linebuf += ' Process %s ended' % dead_pid
       linebuf += '\n'
       print linebuf
       last_tag = None # Ensure next log gets a tag printed
