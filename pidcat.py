@@ -32,6 +32,7 @@ import struct
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', help='Application package name')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('--tag-dedup', dest='tag_dedup', action='store_true', default=False, help='De-deuplicate log tags')
 
 args = parser.parse_args()
 
@@ -111,6 +112,7 @@ LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 
 input = os.popen('adb logcat')
 pids = set()
+last_tag = None
 
 def parse_death(tag, message):
   if tag != 'ActivityManager':
@@ -157,6 +159,7 @@ while True:
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
         linebuf += '\n'
         print linebuf
+        last_tag = None # Ensure next log gets a tag printed
 
     dead_pid = parse_death(tag, message)
     if dead_pid:
@@ -166,6 +169,7 @@ while True:
       linebuf += ' Process %s killed' % dead_pid
       linebuf += '\n'
       print linebuf
+      last_tag = None # Ensure next log gets a tag printed
 
     if owner not in pids:
       continue
@@ -174,9 +178,13 @@ while True:
 
     # right-align tag title and allocate color if needed
     tag = tag.strip()
-    color = allocate_color(tag)
-    tag = tag[-args.tag_width:].rjust(args.tag_width)
-    linebuf += colorize(tag, fg=color)
+    if tag != last_tag or not args.tag_dedup:
+      last_tag = tag
+      color = allocate_color(tag)
+      tag = tag[-args.tag_width:].rjust(args.tag_width)
+      linebuf += colorize(tag, fg=color)
+    else:
+      linebuf += ' ' * args.tag_width
     linebuf += ' '
 
     # write out level colored edge
