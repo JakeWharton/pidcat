@@ -32,6 +32,7 @@ import struct
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', help='Application package name')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 
 args = parser.parse_args()
 
@@ -43,17 +44,16 @@ HEIGHT, WIDTH = struct.unpack('hh',data)
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-def colorize(message, fg=None, bg=None):
-  ret = ''
+RESET = '\033[0m'
+
+def termcolor(fg=None, bg=None):
   codes = []
   if fg is not None: codes.append('3%d' % fg)
   if bg is not None: codes.append('10%d' % bg)
-  if codes:
-    ret += '\033[%sm' % ';'.join(codes)
-  ret += message
-  if codes:
-    ret += '\033[0m'
-  return ret
+  return '\033[%sm' % ';'.join(codes) if codes else ''
+
+def colorize(message, fg=None, bg=None):
+  return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
   wrap_area = WIDTH - header_size
@@ -77,6 +77,7 @@ KNOWN_TAGS = {
   'ActivityThread': WHITE,
   'AndroidRuntime': CYAN,
   'jdwp': WHITE,
+  'StrictMode': WHITE,
 }
 
 def allocate_color(tag):
@@ -92,8 +93,19 @@ def allocate_color(tag):
 
 
 RULES = {
-  #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
+  # StrictMode policy violation; ~duration=319 ms: android.os.StrictMode$StrictModeDiskWriteViolation: policy=31 violation=1
+  re.compile(r'^(StrictMode policy violation)(; ~duration=)(\d+ ms)')
+    : r'%s\1%s\2%s\3%s' % (termcolor(RED), RESET, termcolor(YELLOW), RESET),
 }
+
+# Only enable GC coloring if the user opted-in
+if args.color_gc:
+  # GC_CONCURRENT freed 3617K, 29% free 20525K/28648K, paused 4ms+5ms, total 85ms
+  key = re.compile(r'^(GC_(?:CONCURRENT|FOR_MALLOC|EXTERNAL_ALLOC|EXPLICIT) )(freed \d+.)(, \d+\% free \d+./\d+., )(paused \d+ms\+\d+ms)')
+  val = r'\1%s\2%s\3%s\4%s' % (termcolor(GREEN), RESET, termcolor(YELLOW), RESET)
+
+  RULES[key] = val
+
 
 TAGTYPES = {
   'V': colorize(' V ', fg=WHITE, bg=BLACK),
