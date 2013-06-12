@@ -109,11 +109,31 @@ TAGTYPES = {
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
-PID_DEATH = re.compile(r'^\rProcess ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
+PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 
 input = os.popen('adb logcat')
 pids = set()
+
+def parse_death(tag, message):
+  if tag != 'ActivityManager':
+    return None
+  kill = PID_KILL.match(message)
+  if kill:
+    pid = kill.group(1)
+    if kill.group(2) == args.package and pid in pids:
+      return pid
+  leave = PID_LEAVE.match(message)
+  if leave:
+    pid = leave.group(2)
+    if leave.group(1) == args.package and pid in pids:
+      return pid
+  death = PID_DEATH.match(message)
+  if death:
+    pid = death.group(2)
+    if death.group(1) == args.package and pid in pids:
+      return pid
+  return None
 
 while True:
   try:
@@ -142,24 +162,14 @@ while True:
         linebuf += '\n'
         print linebuf
 
-    kill = PID_KILL.match(message)
-    if kill is not None:
-      line_pid, line_package, reason = kill.groups()
-      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
-        linebuf  = '\n'
-        linebuf += colorize(' ' * (header_size - 1), bg=RED)
-        linebuf += ' Process killed because %s' % reason
-        linebuf += '\n\n\n'
-        print linebuf
-
-    death = PID_DEATH.match(message)
-    if death is not None:
-      line_package, line_pid = death.groups()
-      if 'ActivityManager' == tag and line_pid in pids and package == line_package:
-        linebuf  = '\n'
-        linebuf += colorize(' ' * (header_size - 1), bg=RED)
-        linebuf += ' Process killed because no longer wanted\n\n\n'
-        print linebuf
+    dead_pid = parse_death(tag, message)
+    if dead_pid:
+      pids.remove(dead_pid)
+      linebuf  = '\n'
+      linebuf += colorize(' ' * (header_size - 1), bg=RED)
+      linebuf += ' Process %s killed' % dead_pid
+      linebuf += '\n\n\n'
+      print linebuf
 
     if owner not in pids:
       continue
