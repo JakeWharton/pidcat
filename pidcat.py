@@ -139,8 +139,12 @@ while True:
   except KeyboardInterrupt:
     break
   if len(line) == 0:
-    break
-
+     try:
+       input = os.popen('adb wait-for-device')
+       input = os.popen('adb logcat')
+     except KeyboardInterrupt:
+       break
+    
   log_line = LOG_LINE.match(line)
   if not log_line is None:
     level, tag, owner, message = log_line.groups()
