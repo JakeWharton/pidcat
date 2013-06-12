@@ -9,7 +9,7 @@ coming from your app. Unfortunately, because the process ID changes every time
 you deploy to the phone it becomes a challenge to grep for the right thing.
 
 This script solves that problem by filtering by application package. Supply the
-target pacakge as the sole argument to the python script and enjoy a more
+target package as the sole argument to the python script and enjoy a more
 convenient development process.
 
     ./pidcat.py com.oprah.bees.android
