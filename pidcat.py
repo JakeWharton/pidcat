@@ -157,7 +157,7 @@ while True:
         linebuf = StringIO()
         linebuf.write('\n')
         linebuf.write(colorize(' ' * (HEADER_SIZE - 1), bg=RED))
-        linebuf.write(' No longer wanted')
+        linebuf.write(' Killing because no longer wanted')
         linebuf.write('\n' * 3)
 
         print linebuf.getvalue()
