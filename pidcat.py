@@ -29,13 +29,18 @@ import fcntl
 import termios
 import struct
 import time
+import datetime
+
 
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', help='Application package name')
-parser.add_argument('--device-id', metavar='D', dest='device_id', type=str, default="", help='Device ID')
+parser.add_argument('--device-id', metavar='S', dest='device_id', type=str, default="", help='Device ID')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('--timestamp-width', metavar='N', dest='timestamp_width', type=int, default=16, help='Width of log tag')
+parser.add_argument('--timestamp', action='store_true', help='Display timestamps')
 
 args = parser.parse_args()
+print args
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
@@ -58,7 +63,12 @@ def colorize(message, fg=None, bg=None):
   return ret
 
 def indent_wrap(message):
+  size = header_size
   wrap_area = WIDTH - header_size
+  if args.timestamp:
+    wrap_area = WIDTH - header_size - args.timestamp_width
+    size = header_size + args.timestamp_width
+
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -66,7 +76,7 @@ def indent_wrap(message):
     messagebuf += message[current:next]
     if next < len(message):
       messagebuf += '\n'
-      messagebuf += ' ' * header_size
+      messagebuf += ' ' * size
     current = next
   return messagebuf
 
@@ -196,9 +206,15 @@ def logcat(device_id=""):
         last_tag = tag
         color = allocate_color(tag)
         tag = tag[-args.tag_width:].rjust(args.tag_width)
-        linebuf += colorize(tag, fg=color)
+        if args.timestamp:
+          linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f") + colorize(tag, fg=color)
+        else:
+          linebuf += colorize(tag, fg=color)
       else:
-        linebuf += ' ' * args.tag_width
+        if args.timestamp:
+          linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f") + ' ' * args.tag_width
+        else:
+          linebuf += ' ' * args.tag_width
       linebuf += ' '
 
       # write out level colored edge
@@ -213,6 +229,7 @@ def logcat(device_id=""):
 
       linebuf += indent_wrap(message)
       print linebuf
+
 
 def check_for_device_and_start():
   choosen_device = ""
