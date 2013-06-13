@@ -34,6 +34,7 @@ parser.add_argument('package', help='Application package name')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 
 args = parser.parse_args()
+message_colored = True
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
@@ -95,12 +96,20 @@ RULES = {
   #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
 }
 
+TAGCOLORS = {
+    'V': BLACK,
+    'D': BLUE,
+    'I': GREEN,
+    'W': YELLOW,
+    'E': RED,
+}
+
 TAGTYPES = {
-  'V': colorize(' V ', fg=WHITE, bg=BLACK),
-  'D': colorize(' D ', fg=BLACK, bg=BLUE),
-  'I': colorize(' I ', fg=BLACK, bg=GREEN),
-  'W': colorize(' W ', fg=BLACK, bg=YELLOW),
-  'E': colorize(' E ', fg=BLACK, bg=RED),
+    'V': colorize(' V ', fg=WHITE, bg=TAGCOLORS['V']),
+    'D': colorize(' D ', fg=BLACK, bg=TAGCOLORS['D']),
+    'I': colorize(' I ', fg=BLACK, bg=TAGCOLORS['I']),
+    'W': colorize(' W ', fg=BLACK, bg=TAGCOLORS['W']),
+    'E': colorize(' E ', fg=BLACK, bg=TAGCOLORS['E']),
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
@@ -196,5 +205,8 @@ while True:
       replace = RULES[matcher]
       message = matcher.sub(replace, message)
 
-    linebuf += indent_wrap(message)
+    if message_colored and (level is 'E' or level is 'W'):
+     linebuf += colorize(indent_wrap(message), fg=TAGCOLORS[level])
+    else:
+     linebuf += indent_wrap(message)
     print linebuf
