@@ -163,8 +163,8 @@ def logcat(device_id=""):
     try:
       line = input.readline()
     except KeyboardInterrupt:
-      #break
-      sys.exit()
+      break
+      #sys.exit()
     if len(line) == 0:
       break
 
@@ -230,25 +230,30 @@ def logcat(device_id=""):
       linebuf += indent_wrap(message)
       print linebuf
 
-def check_for_devices():
+def check_for_device_and_start():
   choosen_device = ""
   devices = []
-  while True:
+  retires = 100
+  while retires > 0:
     res = os.popen('adb devices').read()
     raw_devices = res.splitlines()[1:-1]
     if raw_devices:
       if choosen_device in devices:
-        print "\nOutputing logcat for device: " + choosen_device + "\n\n"
+        print "\nOutputing logcat for device: " + choosen_device + "\n"
         logcat(choosen_device)
+        choosen_device = ""
       else:
-        print "Available devices:"
+        print "\nAvailable devices:"
         devices = map(lambda d: str(re.compile("(\s)").split(d)[0]), raw_devices)
         
         for i, d in enumerate(devices):
           print str(i+1) + ": " + str(d)
 
         while True:
-          choice = raw_input("> ")
+          try:
+            choice = raw_input("\nPlease select the device: ")
+          except KeyboardInterrupt:
+            sys.exit()
 
           if re.compile("\d").match(choice):
             #is number
@@ -258,9 +263,10 @@ def check_for_devices():
 
         
     else:
-      print "\nCurrently no device is connected, will retry in few seconds\n"
+      print "\nCurrently no device is connected, will retry in few seconds"
       time.sleep(5)
+      retires -= 1
       continue
   
 
-check_for_devices()
+check_for_device_and_start()
