@@ -28,11 +28,17 @@ import re
 import fcntl
 import termios
 import struct
+import time
+import datetime
+
 
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='+', help='Application package name(s)')
+parser.add_argument('--device-id', metavar='S', dest='device_id', type=str, default="", help='Device ID')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
+parser.add_argument('--timestamp-width', metavar='N', dest='timestamp_width', type=int, default=16, help='Width of log tag')
+parser.add_argument('--timestamp', action='store_true', help='Display timestamps')
 
 args = parser.parse_args()
 
@@ -56,7 +62,12 @@ def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
+  size = header_size
   wrap_area = WIDTH - header_size
+  if args.timestamp:
+    wrap_area = WIDTH - header_size - args.timestamp_width
+    size = header_size + args.timestamp_width
+
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -64,7 +75,7 @@ def indent_wrap(message):
     messagebuf += message[current:next]
     if next < len(message):
       messagebuf += '\n'
-      messagebuf += ' ' * header_size
+      messagebuf += ' ' * size
     current = next
   return messagebuf
 
@@ -122,7 +133,6 @@ PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
 BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
-input = os.popen('adb logcat')
 pids = set()
 last_tag = None
 
@@ -150,72 +160,129 @@ def parse_death(tag, message):
       return pid
   return None
 
-while True:
-  try:
-    line = input.readline()
-  except KeyboardInterrupt:
-    break
-  if len(line) == 0:
-    break
+def logcat(device_id=""):
+  device_cmd = ""
+  if device_id:
+    device_cmd = " -s " + device_id
 
-  bug_line = BUG_LINE.match(line)
-  if bug_line is None:
-    continue
+  input = os.popen('adb' + device_cmd + ' logcat')
 
-  log_line = LOG_LINE.match(line)
-  if not log_line is None:
-    level, tag, owner, message = log_line.groups()
+  last_tag = None  
+  while True:
+    try:
+      line = input.readline()
+    except KeyboardInterrupt:
+      break
+      #sys.exit()
+    if len(line) == 0:
+      break
 
-    start = PID_START.match(message)
-    if start is not None:
-      line_package, target, line_pid, line_uid, line_gids = start.groups()
+    bug_line = BUG_LINE.match(line)
+    if bug_line is None:
+      continue
 
-      if match_pacakges(line_package):
-        pids.add(line_pid)
+    log_line = LOG_LINE.match(line)
+    if not log_line is None:
+      level, tag, owner, message = log_line.groups()
 
-        linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
-        linebuf += indent_wrap(' Process created for %s\n' % target)
-        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-        linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
+      start = PID_START.match(message)
+      if start is not None:
+        line_package, target, line_pid, line_uid, line_gids = start.groups()
+
+        if line_package == args.package:
+          pids.add(line_pid)
+
+          linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
+          linebuf += indent_wrap(' Process created for %s\n' % target)
+          linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+          linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
+          linebuf += '\n'
+          print linebuf
+          last_tag = None # Ensure next log gets a tag printed
+
+      dead_pid = parse_death(tag, message)
+      if dead_pid:
+        pids.remove(dead_pid)
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=RED)
+        linebuf += ' Process %s ended' % dead_pid
         linebuf += '\n'
         print linebuf
         last_tag = None # Ensure next log gets a tag printed
 
-    dead_pid = parse_death(tag, message)
-    if dead_pid:
-      pids.remove(dead_pid)
-      linebuf  = '\n'
-      linebuf += colorize(' ' * (header_size - 1), bg=RED)
-      linebuf += ' Process %s ended' % dead_pid
-      linebuf += '\n'
+      if owner not in pids:
+        continue
+
+      linebuf = ''
+
+      # right-align tag title and allocate color if needed
+      tag = tag.strip()
+      if tag != last_tag:
+        last_tag = tag
+        color = allocate_color(tag)
+        tag = tag[-args.tag_width:].rjust(args.tag_width)
+        if args.timestamp:
+          linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f") + colorize(tag, fg=color)
+        else:
+          linebuf += colorize(tag, fg=color)
+      else:
+        if args.timestamp:
+          linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f") + ' ' * args.tag_width
+        else:
+          linebuf += ' ' * args.tag_width
+      linebuf += ' '
+
+      # write out level colored edge
+      if level not in TAGTYPES: break
+      linebuf += TAGTYPES[level]
+      linebuf += ' '
+
+      # format tag message using rules
+      for matcher in RULES:
+        replace = RULES[matcher]
+        message = matcher.sub(replace, message)
+
+      linebuf += indent_wrap(message)
       print linebuf
-      last_tag = None # Ensure next log gets a tag printed
 
-    if owner not in pids:
-      continue
 
-    linebuf = ''
+def check_for_device_and_start():
+  choosen_device = ""
+  devices = []
+  retries = 100
+  while retries > 0:
+    res = os.popen('adb devices').read()
+    raw_devices = res.splitlines()[1:-1]
+    if raw_devices:
+      if choosen_device in devices:
+        print "\nOutputing logcat for device: " + choosen_device + "\n"
+        logcat(choosen_device)
+        choosen_device = ""
+      else:
+        print "\nAvailable devices:"
+        devices = map(lambda d: str(re.compile("(\s)").split(d)[0]), raw_devices)
+        
+        for i, d in enumerate(devices):
+          print str(i+1) + ": " + str(d)
 
-    # right-align tag title and allocate color if needed
-    tag = tag.strip()
-    if tag != last_tag:
-      last_tag = tag
-      color = allocate_color(tag)
-      tag = tag[-args.tag_width:].rjust(args.tag_width)
-      linebuf += colorize(tag, fg=color)
+        while True:
+          try:
+            choice = raw_input("\nPlease select the device: ")
+          except KeyboardInterrupt:
+            sys.exit()
+
+          if re.compile("\d").match(choice):
+            #is number
+            if (int(choice) -1) < len(devices):
+              choosen_device = devices[int(choice) -1]
+              break
+
+        
     else:
-      linebuf += ' ' * args.tag_width
-    linebuf += ' '
-
-    # write out level colored edge
-    if level not in TAGTYPES: break
-    linebuf += TAGTYPES[level]
-    linebuf += ' '
-
-    # format tag message using rules
-    for matcher in RULES:
-      replace = RULES[matcher]
-      message = matcher.sub(replace, message)
-
-    linebuf += indent_wrap(message)
-    print linebuf
+      print "\nCurrently no device is connected, will retry in few seconds"
+      time.sleep(5)
+      retries -= 1
+      continue
+  
+if __name__ == "__main__":
+  check_for_device_and_start()
