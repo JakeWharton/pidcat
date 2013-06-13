@@ -250,8 +250,8 @@ def logcat(device_id=""):
 def check_for_device_and_start():
   choosen_device = ""
   devices = []
-  retires = 100
-  while retires > 0:
+  retries = 100
+  while retries > 0:
     res = os.popen('adb devices').read()
     raw_devices = res.splitlines()[1:-1]
     if raw_devices:
@@ -282,8 +282,8 @@ def check_for_device_and_start():
     else:
       print "\nCurrently no device is connected, will retry in few seconds"
       time.sleep(5)
-      retires -= 1
+      retries -= 1
       continue
   
-
-check_for_device_and_start()
+if __name__ == "__main__":
+  check_for_device_and_start()
