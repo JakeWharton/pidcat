@@ -101,7 +101,7 @@ RULES = {
 # Only enable GC coloring if the user opted-in
 if args.color_gc:
   # GC_CONCURRENT freed 3617K, 29% free 20525K/28648K, paused 4ms+5ms, total 85ms
-  key = re.compile(r'^(GC_(?:CONCURRENT|FOR_MALLOC|EXTERNAL_ALLOC|EXPLICIT) )(freed \d+.)(, \d+\% free \d+./\d+., )(paused \d+ms\+\d+ms)')
+  key = re.compile(r'^(GC_(?:CONCURRENT|FOR_M?ALLOC|EXTERNAL_ALLOC|EXPLICIT) )(freed <?\d+.)(, \d+\% free \d+./\d+., )(paused \d+ms(?:\+\d+ms)?)')
   val = r'\1%s\2%s\3%s\4%s' % (termcolor(GREEN), RESET, termcolor(YELLOW), RESET)
 
   RULES[key] = val
