@@ -41,7 +41,6 @@ parser.add_argument('--timestamp-width', metavar='N', dest='timestamp_width', ty
 parser.add_argument('--timestamp', action='store_true', help='Display timestamps')
 
 args = parser.parse_args()
-print args
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
