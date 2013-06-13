@@ -156,9 +156,9 @@ def logcat(device_id=""):
   if device_id:
     device_cmd = " -s " + device_id
 
-  input = os.popen('../platform-tools/adb' + device_cmd + ' logcat')
+  input = os.popen('adb' + device_cmd + ' logcat')
 
-  
+  last_tag = None  
   while True:
     try:
       line = input.readline()
@@ -234,7 +234,7 @@ def check_for_devices():
   choosen_device = ""
   devices = []
   while True:
-    res = os.popen('../platform-tools/adb devices').read()
+    res = os.popen('adb devices').read()
     raw_devices = res.splitlines()[1:-1]
     if raw_devices:
       if choosen_device in devices:
