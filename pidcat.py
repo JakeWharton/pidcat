@@ -126,8 +126,6 @@ input = os.popen('adb logcat')
 pids = set()
 last_tag = None
 
-print args.package
-
 def belongs_package(token):
   index = token.find(':')
   return (token in args.package) if index == -1 else (token[:index] in args.package)
