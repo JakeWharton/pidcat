@@ -115,7 +115,7 @@ TAGTYPES = {
   'E': colorize(' E ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
+PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
@@ -126,23 +126,27 @@ input = os.popen('adb logcat')
 pids = set()
 last_tag = None
 
+def match_pacakges(token):
+  index = token.find(':')
+  return (token in args.package) if index == -1 else (token[:index] in args.package)
+
 def parse_death(tag, message):
   if tag != 'ActivityManager':
     return None
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if kill.group(2) in args.package and pid in pids:
+    if match_pacakges(kill.group(2)) and pid in pids:
       return pid
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if leave.group(1) in args.package and pid in pids:
+    if match_pacakges(leave.group(1)) and pid in pids:
       return pid
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if death.group(1) in args.package and pid in pids:
+    if match_pacakges(death.group(1)) and pid in pids:
       return pid
   return None
 
@@ -166,7 +170,7 @@ while True:
     if start is not None:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
-      if line_package in args.package:
+      if match_pacakges(line_package):
         pids.add(line_pid)
 
         linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
