@@ -43,6 +43,8 @@ parser.add_argument('--timestamp', action='store_true', help='Display timestamps
 args = parser.parse_args()
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+if args.timestamp:
+  header_size += args.timestamp_width
 
 # unpack the current terminal width/height
 data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
@@ -62,12 +64,7 @@ def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
-  size = header_size
   wrap_area = WIDTH - header_size
-  if args.timestamp:
-    wrap_area = WIDTH - header_size - args.timestamp_width
-    size = header_size + args.timestamp_width
-
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -75,7 +72,7 @@ def indent_wrap(message):
     messagebuf += message[current:next]
     if next < len(message):
       messagebuf += '\n'
-      messagebuf += ' ' * size
+      messagebuf += ' ' * header_size
     current = next
   return messagebuf
 
@@ -261,9 +258,14 @@ def check_for_device_and_start():
       else:
         print "\nAvailable devices:"
         devices = map(lambda d: str(re.compile("(\s)").split(d)[0]), raw_devices)
-        
+        if not devices:
+          break
         for i, d in enumerate(devices):
-          print str(i+1) + ": " + str(d)
+          res = os.popen('adb -s ' + d + ' shell cat /system/build.prop | grep "ro.product.model"').read()
+          if res:
+            print str(i+1) + ": " + str(d) + " - " + res.split("=")[1].strip()
+          else:
+            print str(i+1) + ": " + str(d)
 
         while True:
           try:
