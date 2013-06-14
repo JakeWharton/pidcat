@@ -30,8 +30,9 @@ import termios
 import struct
 
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
-parser.add_argument('package', help='Application package name')
+parser.add_argument('package', nargs='+', help='Application package name(s)')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 
 args = parser.parse_args()
 
@@ -48,12 +49,10 @@ def colorize(message, fg=None, bg=None):
   codes = []
   if fg is not None: codes.append('3%d' % fg)
   if bg is not None: codes.append('10%d' % bg)
-  if codes:
-    ret += '\033[%sm' % ';'.join(codes)
-  ret += message
-  if codes:
-    ret += '\033[0m'
-  return ret
+  return '\033[%sm' % ';'.join(codes) if codes else ''
+
+def colorize(message, fg=None, bg=None):
+  return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
   wrap_area = WIDTH - header_size
@@ -77,6 +76,7 @@ KNOWN_TAGS = {
   'ActivityThread': WHITE,
   'AndroidRuntime': CYAN,
   'jdwp': WHITE,
+  'StrictMode': WHITE,
 }
 
 def allocate_color(tag):
@@ -92,8 +92,19 @@ def allocate_color(tag):
 
 
 RULES = {
-  #re.compile(r"([\w\.@]+)=([\w\.@]+)"): r"%s\1%s=%s\2%s" % (format(fg=BLUE), format(fg=GREEN), format(fg=BLUE), format(reset=True)),
+  # StrictMode policy violation; ~duration=319 ms: android.os.StrictMode$StrictModeDiskWriteViolation: policy=31 violation=1
+  re.compile(r'^(StrictMode policy violation)(; ~duration=)(\d+ ms)')
+    : r'%s\1%s\2%s\3%s' % (termcolor(RED), RESET, termcolor(YELLOW), RESET),
 }
+
+# Only enable GC coloring if the user opted-in
+if args.color_gc:
+  # GC_CONCURRENT freed 3617K, 29% free 20525K/28648K, paused 4ms+5ms, total 85ms
+  key = re.compile(r'^(GC_(?:CONCURRENT|FOR_M?ALLOC|EXTERNAL_ALLOC|EXPLICIT) )(freed <?\d+.)(, \d+\% free \d+./\d+., )(paused \d+ms(?:\+\d+ms)?)')
+  val = r'\1%s\2%s\3%s\4%s' % (termcolor(GREEN), RESET, termcolor(YELLOW), RESET)
+
+  RULES[key] = val
+
 
 TAGTYPES = {
   'V': colorize(' V ', fg=WHITE, bg=BLACK),
@@ -103,15 +114,20 @@ TAGTYPES = {
   'E': colorize(' E ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
+PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
+BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
 input = os.popen('adb logcat')
 pids = set()
 last_tag = None
+
+def match_pacakges(token):
+  index = token.find(':')
+  return (token in args.package) if index == -1 else (token[:index] in args.package)
 
 def parse_death(tag, message):
   if tag != 'ActivityManager':
@@ -119,17 +135,17 @@ def parse_death(tag, message):
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if kill.group(2) == args.package and pid in pids:
+    if match_pacakges(kill.group(2)) and pid in pids:
       return pid
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if leave.group(1) == args.package and pid in pids:
+    if match_pacakges(leave.group(1)) and pid in pids:
       return pid
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if death.group(1) == args.package and pid in pids:
+    if match_pacakges(death.group(1)) and pid in pids:
       return pid
   return None
 
@@ -144,7 +160,11 @@ while True:
        input = os.popen('adb logcat')
      except KeyboardInterrupt:
        break
-    
+
+  bug_line = BUG_LINE.match(line)
+  if bug_line is None:
+    continue
+
   log_line = LOG_LINE.match(line)
   if not log_line is None:
     level, tag, owner, message = log_line.groups()
@@ -153,10 +173,11 @@ while True:
     if start is not None:
       line_package, target, line_pid, line_uid, line_gids = start.groups()
 
-      if line_package == args.package:
+      if match_pacakges(line_package):
         pids.add(line_pid)
 
-        linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += indent_wrap(' Process created for %s\n' % target)
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
