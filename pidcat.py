@@ -188,8 +188,8 @@ def logcat(device_id=""):
       start = PID_START.match(message)
       if start is not None:
         line_package, target, line_pid, line_uid, line_gids = start.groups()
-
-        if line_package == args.package:
+        
+        if match_pacakges(line_package):
           pids.add(line_pid)
 
           linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
