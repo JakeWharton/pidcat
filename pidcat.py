@@ -173,7 +173,8 @@ while True:
       if match_pacakges(line_package):
         pids.add(line_pid)
 
-        linebuf  = colorize(' ' * (header_size - 1), bg=WHITE)
+        linebuf  = '\n'
+        linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += indent_wrap(' Process created for %s\n' % target)
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
