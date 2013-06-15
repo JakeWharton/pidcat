@@ -113,6 +113,7 @@ TAGTYPES = {
   'I': colorize(' I ', fg=BLACK, bg=GREEN),
   'W': colorize(' W ', fg=BLACK, bg=YELLOW),
   'E': colorize(' E ', fg=BLACK, bg=RED),
+  'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)\r?$')
