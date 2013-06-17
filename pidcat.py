@@ -33,14 +33,18 @@ parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='+', help='Application package name(s)')
 parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
+parser.add_argument('--terminal-width', dest='terminal_width', type=int, help='Default a terminal width. Required for piping to sources other than a real screen.')
 
 args = parser.parse_args()
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
-# unpack the current terminal width/height
-data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
-HEIGHT, WIDTH = struct.unpack('hh',data)
+if args.terminal_width:
+  WIDTH = args.terminal_width
+else:
+  # unpack the current terminal width/height
+  data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
+  HEIGHT, WIDTH = struct.unpack('hh',data)
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
