@@ -179,7 +179,7 @@ while True:
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
         linebuf += '\n'
-        print linebuf
+        print(linebuf)
         last_tag = None # Ensure next log gets a tag printed
 
     dead_pid = parse_death(tag, message)
@@ -189,7 +189,7 @@ while True:
       linebuf += colorize(' ' * (header_size - 1), bg=RED)
       linebuf += ' Process %s ended' % dead_pid
       linebuf += '\n'
-      print linebuf
+      print(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
     if owner not in pids:
@@ -219,4 +219,4 @@ while True:
       message = matcher.sub(replace, message)
 
     linebuf += indent_wrap(message)
-    print linebuf
+    print(linebuf)
