@@ -36,6 +36,7 @@ parser.add_argument('package', nargs='+', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
+parser.add_argument('--terminal-width', dest='terminal_width', type=int, help='Default a terminal width. Required for piping to sources other than a real screen.')
 
 args = parser.parse_args()
 min_level=LOG_LEVELS_MAP[args.min_level]
@@ -43,12 +44,15 @@ min_level=LOG_LEVELS_MAP[args.min_level]
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
 width = -1
-try:
-  # Get the current terminal width
-  import fcntl, termios, struct
-  h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
-except:
-  pass
+if args.terminal_width:
+  width = args.terminal_width
+else:
+  try:
+    # Get the current terminal width
+    import fcntl, termios, struct
+    h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
+  except:
+    pass
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
