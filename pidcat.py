@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 '''
 Copyright 2009, The Android Open Source Project
@@ -25,9 +25,8 @@ import argparse
 import os
 import sys
 import re
-import fcntl
-import termios
-import struct
+import subprocess
+from subprocess import PIPE
 
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='+', help='Application package name(s)')
@@ -38,9 +37,13 @@ args = parser.parse_args()
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
-# unpack the current terminal width/height
-data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
-HEIGHT, WIDTH = struct.unpack('hh',data)
+width = -1
+try:
+  # Get the current terminal width
+  import fcntl, termios, struct
+  h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
+except:
+  pass
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
@@ -56,7 +59,9 @@ def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
-  wrap_area = WIDTH - header_size
+  if width == -1:
+    return message
+  wrap_area = width - header_size
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -120,10 +125,11 @@ PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
-LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
+LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*?)\r?$')
 BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
-input = os.popen('adb logcat')
+adb_command = ['adb', 'logcat']
+adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
 last_tag = None
 
@@ -151,9 +157,9 @@ def parse_death(tag, message):
       return pid
   return None
 
-while True:
+while adb.poll() is None:
   try:
-    line = input.readline()
+    line = adb.stdout.readline()
   except KeyboardInterrupt:
     break
   if len(line) == 0:
