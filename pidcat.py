@@ -39,8 +39,7 @@ parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Co
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 
 args = parser.parse_args()
-min_level=LOG_LEVELS_MAP[args.min_level]
-serial=args.device_serial
+min_level = LOG_LEVELS_MAP[args.min_level]
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
@@ -135,10 +134,11 @@ PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
 LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*?)\r?$')
 BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
-adb_command = ['adb', 'logcat']
-if serial != None:
-  adb_command.insert(1, '-s')
-  adb_command.insert(2, serial)
+adb_command = ['adb']
+if args.device_serial:
+  adb_command.extend(['-s', args.device_serial])
+adb_command.append('logcat')
+
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
 last_tag = None
