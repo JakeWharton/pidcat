@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 '''
 Copyright 2009, The Android Open Source Project
@@ -25,26 +25,34 @@ import argparse
 import os
 import sys
 import re
-import fcntl
-import termios
-import struct
+import subprocess
+from subprocess import PIPE
 
+
+LOG_LEVELS = ['V','D','I','W','E']
+LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='+', help='Application package name(s)')
-parser.add_argument('--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
+parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('--terminal-width', dest='terminal_width', type=int, help='Default a terminal width. Required for piping to sources other than a real screen.')
 
 args = parser.parse_args()
+min_level=LOG_LEVELS_MAP[args.min_level]
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
+width = -1
 if args.terminal_width:
-  WIDTH = args.terminal_width
+  width = args.terminal_width
 else:
-  # unpack the current terminal width/height
-  data = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234')
-  HEIGHT, WIDTH = struct.unpack('hh',data)
+  try:
+    # Get the current terminal width
+    import fcntl, termios, struct
+    h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
+  except:
+    pass
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
@@ -60,7 +68,9 @@ def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
-  wrap_area = WIDTH - header_size
+  if width == -1:
+    return message
+  wrap_area = width - header_size
   messagebuf = ''
   current = 0
   while current < len(message):
@@ -124,10 +134,11 @@ PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)\r?$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*\r?$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?\r$')
-LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*)\r?$')
+LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*?)\r?$')
 BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
-input = os.popen('adb logcat')
+adb_command = ['adb', 'logcat']
+adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
 last_tag = None
 
@@ -155,9 +166,9 @@ def parse_death(tag, message):
       return pid
   return None
 
-while True:
+while adb.poll() is None:
   try:
-    line = input.readline()
+    line = adb.stdout.readline()
   except KeyboardInterrupt:
     break
   if len(line) == 0:
@@ -184,7 +195,7 @@ while True:
         linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
         linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
         linebuf += '\n'
-        print linebuf
+        print(linebuf)
         last_tag = None # Ensure next log gets a tag printed
 
     dead_pid = parse_death(tag, message)
@@ -194,10 +205,12 @@ while True:
       linebuf += colorize(' ' * (header_size - 1), bg=RED)
       linebuf += ' Process %s ended' % dead_pid
       linebuf += '\n'
-      print linebuf
+      print(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
     if owner not in pids:
+      continue
+    if LOG_LEVELS_MAP[level] < min_level: 
       continue
 
     linebuf = ''
@@ -224,4 +237,4 @@ while True:
       message = matcher.sub(replace, message)
 
     linebuf += indent_wrap(message)
-    print linebuf
+    print(linebuf)
