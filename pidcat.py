@@ -36,9 +36,11 @@ parser.add_argument('package', nargs='+', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
+parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 
 args = parser.parse_args()
 min_level=LOG_LEVELS_MAP[args.min_level]
+serial=args.device_serial
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
@@ -134,6 +136,9 @@ LOG_LINE  = re.compile(r'^([A-Z])/([^\(]+)\( *(\d+)\): (.*?)\r?$')
 BUG_LINE  = re.compile(r'^(?!.*(nativeGetEnabledTags)).*$')
 
 adb_command = ['adb', 'logcat']
+if serial != None:
+  adb_command.insert(1, '-s')
+  adb_command.insert(2, serial)
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
 last_tag = None
