@@ -27,6 +27,7 @@ import sys
 import re
 import subprocess
 from subprocess import PIPE
+import datetime
 
 
 LOG_LEVELS = ['V','D','I','W','E']
@@ -37,11 +38,15 @@ parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
+parser.add_argument('-t', '--timestamp', action='store_true', help='Display timestamps')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level]
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+if args.timestamp:
+  # timestamp width
+  header_size += 17
 
 width = -1
 try:
@@ -224,8 +229,12 @@ while adb.poll() is None:
     last_tag = tag
     color = allocate_color(tag)
     tag = tag[-args.tag_width:].rjust(args.tag_width)
+    if args.timestamp:
+      linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f")
     linebuf += colorize(tag, fg=color)
   else:
+    if args.timestamp:
+      linebuf += datetime.datetime.now().strftime(" %H:%M:%S.%f")
     linebuf += ' ' * args.tag_width
   linebuf += ' '
 
