@@ -29,7 +29,7 @@ import subprocess
 from subprocess import PIPE
 
 
-LOG_LEVELS = ['V','D','I','W','E']
+LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='+', help='Application package name(s)')
