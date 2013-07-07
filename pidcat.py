@@ -37,6 +37,8 @@ parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
+parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
+parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level]
@@ -137,6 +139,10 @@ BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 adb_command = ['adb']
 if args.device_serial:
   adb_command.extend(['-s', args.device_serial])
+if args.use_device:
+  adb_command.append('-d')
+if args.use_emulator:
+  adb_command.append('-e')
 adb_command.append('logcat')
 
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
