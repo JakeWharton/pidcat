@@ -176,7 +176,7 @@ while adb.poll() is None:
     break
 
   bug_line = BUG_LINE.match(line)
-  if bug_line is None:
+  if bug_line is not None:
     continue
 
   log_line = LOG_LINE.match(line)
