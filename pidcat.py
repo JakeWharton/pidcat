@@ -175,7 +175,7 @@ def parse_death(tag, message):
 
 while adb.poll() is None:
   try:
-    line = adb.stdout.readline().decode('utf-8').strip()
+    line = adb.stdout.readline().decode('utf-8', 'replace').strip()
   except KeyboardInterrupt:
     break
   if len(line) == 0:
