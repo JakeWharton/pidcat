@@ -69,6 +69,7 @@ def colorize(message, fg=None, bg=None):
 def indent_wrap(message):
   if width == -1:
     return message
+  message = message.replace('\t', '    ')
   wrap_area = width - header_size
   messagebuf = ''
   current = 0
