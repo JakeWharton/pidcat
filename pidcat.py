@@ -137,14 +137,20 @@ PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 
-adb_command = ['adb']
+adb_options = []
 if args.device_serial:
-  adb_command.extend(['-s', args.device_serial])
+  adb_options.extend(['-s', args.device_serial])
 if args.use_device:
-  adb_command.append('-d')
+  adb_options.append('-d')
 if args.use_emulator:
-  adb_command.append('-e')
+  adb_options.append('-e')
+adb_command = ['adb']
+adb_command.extend(adb_options)
 adb_command.append('logcat')
+
+ps_command = ['adb']
+ps_command.extend(adb_options)
+ps_command.extend(['shell', 'ps'])
 
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
@@ -174,6 +180,31 @@ def parse_death(tag, message):
       return pid
   return None
 
+def parse_ps(ps_out, set):
+  processes = ps_out.split('\n')
+  fields = processes[0].split();
+  nfields = len(fields)
+  for row in processes[1:]:
+    row = row.rstrip()
+    if not row:
+      continue
+    fields = row.split(None, nfields)
+    name = fields[8]
+    pid = fields[1]
+    if match_packages(name):
+      linebuf  = '\n'
+      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+      linebuf += ' Process %s is found' % (pid)
+      linebuf += '\n'
+      print(linebuf)
+      pids.add(pid)
+
+def update_with_ps():
+  ps = subprocess.Popen(ps_command, stdout=PIPE)
+  ps_out, ps_err = ps.communicate()
+  parse_ps(ps_out, set)
+
+update_with_ps()
 while adb.poll() is None:
   try:
     line = adb.stdout.readline().decode('utf-8', 'replace').strip()
