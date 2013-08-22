@@ -137,7 +137,7 @@ TAGTYPES = {
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 
-PS_POLLING_INTERVAL = 1
+PS_POLLING_INTERVAL_SECS = 1
 
 adb_options = []
 if args.device_serial:
@@ -212,7 +212,7 @@ def update_pids():
 def update_pids_background():
   while True:
     update_pids()
-    time.sleep(PS_POLLING_INTERVAL)
+    time.sleep(PS_POLLING_INTERVAL_SECS)
 
 lock = threading.RLock()
 thread.start_new_thread(update_pids_background, ())
