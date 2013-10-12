@@ -32,7 +32,7 @@ from subprocess import PIPE
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
-parser.add_argument('package', nargs='+', help='Application package name(s)')
+parser.add_argument('package', nargs='*', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
@@ -152,6 +152,8 @@ pids = set()
 last_tag = None
 
 def match_packages(token):
+  if len(args.package) == 0:
+    return True
   index = token.find(':')
   return (token in args.package) if index == -1 else (token[:index] in args.package)
 
