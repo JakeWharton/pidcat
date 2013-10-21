@@ -20,12 +20,16 @@ limitations under the License.
 # Written by Jeff Sharkey, http://jsharkey.org/
 # Piping detection and popen() added by other Android team members
 # Package name restriction by Jake Wharton, http://jakewharton.com
+# PID detection with ps command by Takahiro "Poly" Horikawa <horikawa.takahiro@gmail.com>
 
 import argparse
 import os
 import sys
 import re
 import subprocess
+import time
+import thread
+import threading
 from subprocess import PIPE
 
 
@@ -131,21 +135,25 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
-PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)$')
-PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*$')
-PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 
-adb_command = ['adb']
+PS_POLLING_INTERVAL_SECS = 1
+
+adb_options = []
 if args.device_serial:
-  adb_command.extend(['-s', args.device_serial])
+  adb_options.extend(['-s', args.device_serial])
 if args.use_device:
-  adb_command.append('-d')
+  adb_options.append('-d')
 if args.use_emulator:
-  adb_command.append('-e')
+  adb_options.append('-e')
+adb_command = ['adb']
+adb_command.extend(adb_options)
 adb_command.append('logcat')
+
+ps_command = ['adb']
+ps_command.extend(adb_options)
+ps_command.extend(['shell', 'ps'])
 
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
@@ -157,25 +165,60 @@ def match_packages(token):
   index = token.find(':')
   return (token in args.package) if index == -1 else (token[:index] in args.package)
 
-def parse_death(tag, message):
-  if tag != 'ActivityManager':
-    return None
-  kill = PID_KILL.match(message)
-  if kill:
-    pid = kill.group(1)
-    if match_packages(kill.group(2)) and pid in pids:
-      return pid
-  leave = PID_LEAVE.match(message)
-  if leave:
-    pid = leave.group(2)
-    if match_packages(leave.group(1)) and pid in pids:
-      return pid
-  death = PID_DEATH.match(message)
-  if death:
-    pid = death.group(2)
-    if match_packages(death.group(1)) and pid in pids:
-      return pid
-  return None
+def parse_ps(ps_out):
+  new_pids = set()
+  processes = ps_out.split('\n')
+  fields = processes[0].split();
+  nfields = len(fields)
+  for row in processes[1:]:
+    row = row.rstrip()
+    if not row:
+      continue
+    fields = row.split(None, nfields)
+    name = fields[8]
+    pid = fields[1]
+    if match_packages(name):
+      new_pids.add(pid)
+  return new_pids
+
+def print_diff(pids, new_pids):
+  for new_pid in new_pids:
+    if new_pid not in pids:
+      linebuf  = '\n'
+      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+      linebuf += ' Process %s is found' % (new_pid)
+      linebuf += '\n'
+      print(linebuf)
+
+  deleted_pids = pids.difference(new_pids)
+  for deleted_pid in deleted_pids:
+    linebuf  = '\n'
+    linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+    linebuf += ' Process %s is deleted' % (deleted_pid)
+    linebuf += '\n'
+    print(linebuf)
+  pass
+
+def get_pids():
+  ps = subprocess.Popen(ps_command, stdout=PIPE)
+  ps_out, ps_err = ps.communicate()
+  return parse_ps(ps_out)
+
+def update_pids():
+  with lock:
+    new_pids = get_pids()
+    global pids
+    print_diff(pids, new_pids)
+    pids = new_pids
+    last_ps_check = time.time()
+
+def update_pids_background():
+  while True:
+    update_pids()
+    time.sleep(PS_POLLING_INTERVAL_SECS)
+
+lock = threading.RLock()
+thread.start_new_thread(update_pids_background, ())
 
 while adb.poll() is None:
   try:
@@ -194,32 +237,6 @@ while adb.poll() is None:
     continue
 
   level, tag, owner, message = log_line.groups()
-
-  start = PID_START.match(message)
-  if start is not None:
-    line_package, target, line_pid, line_uid, line_gids = start.groups()
-
-    if match_packages(line_package):
-      pids.add(line_pid)
-
-      linebuf  = '\n'
-      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += indent_wrap(' Process created for %s\n' % target)
-      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
-      linebuf += '\n'
-      print(linebuf)
-      last_tag = None # Ensure next log gets a tag printed
-
-  dead_pid = parse_death(tag, message)
-  if dead_pid:
-    pids.remove(dead_pid)
-    linebuf  = '\n'
-    linebuf += colorize(' ' * (header_size - 1), bg=RED)
-    linebuf += ' Process %s ended' % dead_pid
-    linebuf += '\n'
-    print(linebuf)
-    last_tag = None # Ensure next log gets a tag printed
 
   if owner not in pids:
     continue
