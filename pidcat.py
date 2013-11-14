@@ -44,6 +44,7 @@ parser.add_argument('--always-display-tags', dest='always_tags', action='store_t
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
+parser.add_argument('-t', '--show-time', dest='show_time', action='store_true', help='Display the timestamp of each log line')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level]
@@ -135,7 +136,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE  = re.compile(r'^(?P<timestamp>[0-9-:. ]+)?(?P<level>[A-Z])/(?P<tag>.+?)\( *(?P<owner>\d+)\): (?P<message>.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 
 PS_POLLING_INTERVAL_SECS = 1
@@ -150,6 +151,9 @@ if args.use_emulator:
 adb_command = ['adb']
 adb_command.extend(adb_options)
 adb_command.append('logcat')
+if args.show_time:
+  header_size += 19 # len("MM-DD HH:mm:ss.mmm ")
+  adb_command.extend(['-v', 'time'])
 
 ps_command = ['adb']
 ps_command.extend(adb_options)
@@ -236,7 +240,11 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  level = log_line.group('level')
+  tag = log_line.group('tag')
+  owner = log_line.group('owner')
+  message = log_line.group('message')
+  timestamp = log_line.group('timestamp')
 
   if owner not in pids:
     continue
@@ -245,6 +253,9 @@ while adb.poll() is None:
 
   linebuf = ''
 
+  if args.show_time:
+    linebuf += timestamp
+  
   # right-align tag title and allocate color if needed
   tag = tag.strip()
   if tag != last_tag or args.always_tags:
