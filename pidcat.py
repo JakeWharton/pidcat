@@ -136,7 +136,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-LOG_LINE  = re.compile(r'^([0-9-:. ]+)?([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE  = re.compile(r'^(?P<timestamp>[0-9-:. ]+)?(?P<level>[A-Z])/(?P<tag>.+?)\( *(?P<owner>\d+)\): (?P<message>.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 
 PS_POLLING_INTERVAL_SECS = 1
@@ -240,7 +240,11 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  timestamp, level, tag, owner, message = log_line.groups()
+  level = log_line.group('level')
+  tag = log_line.group('tag')
+  owner = log_line.group('owner')
+  message = log_line.group('message')
+  timestamp = log_line.group('timestamp')
 
   if owner not in pids:
     continue
