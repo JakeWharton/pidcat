@@ -223,7 +223,7 @@ while adb.poll() is None:
 
   if owner not in pids:
     continue
-  if LOG_LEVELS_MAP[level] < min_level:
+  if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
 
   linebuf = ''
@@ -240,8 +240,10 @@ while adb.poll() is None:
   linebuf += ' '
 
   # write out level colored edge
-  if level not in TAGTYPES: break
-  linebuf += TAGTYPES[level]
+  if level in TAGTYPES:
+    linebuf += TAGTYPES[level]
+  else:
+    linebuf += ' ' + level + ' '
   linebuf += ' '
 
   # format tag message using rules
