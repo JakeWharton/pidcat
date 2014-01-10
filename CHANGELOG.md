@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 1.4.1 *(2014-01-09)*
+----------------------------
+
+ * Fix: Ignore manufacturer-added invalid tag levels.
+
+
 Version 1.4.0 *(2013-10-12)*
 ----------------------------
 

@@ -17,9 +17,9 @@ limitations under the License.
 '''
 
 # Script to highlight adb logcat output for console
-# Written by Jeff Sharkey, http://jsharkey.org/
+# Originally written by Jeff Sharkey, http://jsharkey.org/
 # Piping detection and popen() added by other Android team members
-# Package name restriction by Jake Wharton, http://jakewharton.com
+# Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
 import os
