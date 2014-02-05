@@ -40,6 +40,7 @@ parser.add_argument('--always-display-tags', dest='always_tags', action='store_t
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
+parser.add_argument('-t', '--timestamp', dest='add_timestamp', action='store_true', help='Prepend each line of output with the current time.')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level]
@@ -135,8 +136,11 @@ PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
+if args.add_timestamp:
+  LOG_LINE = re.compile(r'^([0-9-:. ]*) ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+else:
+  LOG_LINE = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 
 adb_command = ['adb']
 if args.device_serial:
@@ -146,6 +150,8 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+if args.add_timestamp:
+  adb_command.extend(['-v', 'time'])
 
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
@@ -193,7 +199,10 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  if args.add_timestamp:
+    time, level, tag, owner, message = log_line.groups()
+  else:
+    level, tag, owner, message = log_line.groups()
 
   start = PID_START.match(message)
   if start is not None:
@@ -250,6 +259,9 @@ while adb.poll() is None:
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
+
+  if args.add_timestamp:
+    message = time + " | " + message
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
