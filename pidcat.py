@@ -93,6 +93,7 @@ KNOWN_TAGS = {
   'AndroidRuntime': CYAN,
   'jdwp': WHITE,
   'StrictMode': WHITE,
+  'DEBUG': YELLOW,
 }
 
 def allocate_color(tag):
@@ -137,6 +138,7 @@ PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
+BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
 adb_command = ['adb']
 if args.device_serial:
@@ -150,6 +152,7 @@ adb_command.append('logcat')
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
 last_tag = None
+app_pid = None
 
 def match_packages(token):
   if len(args.package) == 0:
@@ -202,6 +205,8 @@ while adb.poll() is None:
     if match_packages(line_package):
       pids.add(line_pid)
 
+      app_pid = line_pid
+
       linebuf  = '\n'
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
       linebuf += indent_wrap(' Process created for %s\n' % target)
@@ -220,6 +225,13 @@ while adb.poll() is None:
     linebuf += '\n'
     print(linebuf)
     last_tag = None # Ensure next log gets a tag printed
+
+  # Make sure the backtrace is printed after a native crash
+  if tag.strip() == 'DEBUG':
+    bt_line = BACKTRACE_LINE.match(message.lstrip())
+    if bt_line is not None:
+      message = message.lstrip()
+      owner = app_pid
 
   if owner not in pids:
     continue
