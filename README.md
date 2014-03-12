@@ -36,6 +36,11 @@ Make sure that `adb` from the [Android SDK][3] is on your PATH. This script will
 not work unless this is that case. That means, when you type `adb` and press
 enter into your terminal something actually happens.
 
+To include `adb` and other android tools on your path:
+
+    export PATH=$PATH:<path to Android SDK>/tools
+
+Include that line in your `.bashrc` or `.zshrc`.
 
 
 
