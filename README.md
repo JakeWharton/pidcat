@@ -23,6 +23,8 @@ Here is an example of the output when running for the Google Plus app:
 Install
 -------
 
+Get the script:
+
  *  OS X: Use [Homebrew][2].
 
          brew install pidcat
@@ -30,8 +32,13 @@ Install
  * Others: Download the `pidcat.py` and place it on your PATH.
 
 
+Make sure that `adb` from the [Android SDK][3] is on your PATH. This script will
+not work unless this is that case. That means, when you type `adb` and press
+enter into your terminal something actually happens.
+
 
 
 
  [1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/
  [2]: http://brew.sh
+ [3]: http://developer.android.com/sdk/
