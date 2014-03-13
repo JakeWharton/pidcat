@@ -39,12 +39,9 @@ enter into your terminal something actually happens.
 To include `adb` and other android tools on your path:
 
     export PATH=$PATH:<path to Android SDK>/platform-tools
-
-and
-
     export PATH=$PATH:<path to Android SDK>/tools
 
-Include that line in your `.bashrc` or `.zshrc`.
+Include these lines in your `.bashrc` or `.zshrc`.
 
 
 
