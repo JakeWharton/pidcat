@@ -162,23 +162,26 @@ def match_packages(token):
 
 def parse_death(tag, message):
   if tag != 'ActivityManager':
-    return None
+    return None, None
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if match_packages(kill.group(2)) and pid in pids:
-      return pid
+    package_line = kill.group(2)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if match_packages(leave.group(1)) and pid in pids:
-      return pid
+    package_line = leave.group(1)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if match_packages(death.group(1)) and pid in pids:
-      return pid
-  return None
+    package_line = death.group(1)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
+  return None, None
 
 while adb.poll() is None:
   try:
@@ -209,19 +212,19 @@ while adb.poll() is None:
 
       linebuf  = '\n'
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += indent_wrap(' Process created for %s\n' % target)
+      linebuf += indent_wrap(' Process %s created for %s\n' % (line_package, target))
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
       linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
       linebuf += '\n'
       print(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
-  dead_pid = parse_death(tag, message)
+  dead_pid, dead_pname = parse_death(tag, message)
   if dead_pid:
     pids.remove(dead_pid)
     linebuf  = '\n'
     linebuf += colorize(' ' * (header_size - 1), bg=RED)
-    linebuf += ' Process %s ended' % dead_pid
+    linebuf += ' Process %s (PID: %s) ended' % (dead_pname, dead_pid)
     linebuf += '\n'
     print(linebuf)
     last_tag = None # Ensure next log gets a tag printed
