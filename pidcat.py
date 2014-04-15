@@ -37,6 +37,7 @@ parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('--always-display-tags', dest='always_tags', action='store_true',help='Always display the tag name')
+parser.add_argument('--always-display-line', dest='always_line', action='store_true',help='Always display the end of line')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
@@ -75,7 +76,7 @@ def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
 def indent_wrap(message):
-  if width == -1:
+  if width == -1 and not args.always_line:
     return message
   message = message.replace('\t', '    ')
   wrap_area = width - header_size
