@@ -40,6 +40,7 @@ parser.add_argument('--always-display-tags', dest='always_tags', action='store_t
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
+parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level]
@@ -155,6 +156,15 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+
+# Clear log before starting logcat
+if args.clear_logcat:
+  adb_clear_command = list(adb_command)
+  adb_clear_command.append('-c') 
+  adb_clear = subprocess.Popen(adb_clear_command)
+
+  while adb_clear.poll() is None:
+    pass
 
 adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 pids = set()
