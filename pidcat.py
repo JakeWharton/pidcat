@@ -283,6 +283,7 @@ while adb.poll() is None:
   # format tag message using rules
   for matcher in RULES:
     replace = RULES[matcher]
+    message = colorize(message, fg=color)
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
