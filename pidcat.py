@@ -22,10 +22,10 @@ limitations under the License.
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
+import sys
 import re
 import subprocess
 from subprocess import PIPE
-
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -158,13 +158,23 @@ adb_command.append('logcat')
 # Clear log before starting logcat
 if args.clear_logcat:
   adb_clear_command = list(adb_command)
-  adb_clear_command.append('-c') 
+  adb_clear_command.append('-c')
   adb_clear = subprocess.Popen(adb_clear_command)
 
   while adb_clear.poll() is None:
     pass
 
-adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+# This is a ducktype of the subprocess.Popen object
+class FakeStdinProcess():
+  def __init__(self):
+    self.stdout = sys.stdin
+  def poll(self):
+    return None
+
+if sys.stdin.isatty():
+  adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+else:
+  adb = FakeStdinProcess()
 pids = set()
 last_tag = None
 app_pid = None
