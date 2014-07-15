@@ -22,8 +22,6 @@ limitations under the License.
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
-import os
-import sys
 import re
 import subprocess
 from subprocess import PIPE
