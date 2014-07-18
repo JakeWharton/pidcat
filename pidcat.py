@@ -25,6 +25,8 @@ import argparse
 import sys
 import re
 import subprocess
+from collections import OrderedDict
+from column import Column
 from subprocess import PIPE
 
 LOG_LEVELS = 'VDIWEF'
@@ -136,6 +138,7 @@ TAGTYPES = {
   'W': colorize(' W ', fg=BLACK, bg=YELLOW),
   'E': colorize(' E ', fg=BLACK, bg=RED),
   'F': colorize(' F ', fg=BLACK, bg=RED),
+  ' ': '   ',
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
@@ -210,6 +213,30 @@ def parse_death(tag, message):
       return pid, package_line
   return None, None
 
+columns = OrderedDict()
+columns['tag'] = Column(max_length=args.tag_width, align=Column.ALIGN_RIGHT,
+                        always_first_line=args.always_tags)
+columns['level'] = Column(max_length=1,
+                          always_first_line=args.always_tags)
+level_padding = 1 # 1
+message_width = width - len(columns) - (2*level_padding) - sum(map(
+  lambda col: col.max_length, columns.itervalues()))
+columns['message'] = Column(max_length=message_width)
+
+def all_columns_are_done(columns):
+  return all([col.is_done() for col in columns.itervalues()])
+
+def print_message_columns(columns, bg=WHITE):
+  buf = ''
+  while not all_columns_are_done(columns):
+    for name,col in columns.iteritems():
+      if name == 'padding':
+        buf += colorize(col.get_line(), bg=bg)
+        buf += ' '
+      else:
+        buf += col.get_line()
+  print buf.encode('utf-8')
+
 while adb.poll() is None:
   try:
     line = adb.stdout.readline().decode('utf-8', 'replace').strip()
@@ -227,6 +254,7 @@ while adb.poll() is None:
     continue
 
   level, tag, owner, message = log_line.groups()
+  tag = tag[0:args.tag_width]
 
   start = PID_START.match(message)
   if start is not None:
@@ -234,26 +262,39 @@ while adb.poll() is None:
 
     if match_packages(line_package):
       pids.add(line_pid)
-
       app_pid = line_pid
 
-      linebuf  = '\n'
-      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += indent_wrap(' Process %s created for %s\n' % (line_package, target))
-      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
-      linebuf += '\n'
-      print(linebuf)
+      msg_columns = OrderedDict()
+      msg_columns['padding'] = Column(max_length=(width - columns['message'].max_length - 1),
+                                      always_first_line=args.always_tags)
+      msg_columns['message'] = Column(max_length=columns['message'].max_length)
+      msg_columns['padding'].message = ''
+      msg_columns['message'].message = 'Process %s created for %s' %(
+        line_package, target)
+      print '\n',
+      print_message_columns(msg_columns)
+
+      msg_columns['padding'].message = ''
+      msg_columns['message'].message = 'PID: %s   UID: %s   GIDs: %s' %(
+        line_pid, line_uid, line_gids)
+      print_message_columns(msg_columns)
+      print '\n',
+
       last_tag = None # Ensure next log gets a tag printed
 
   dead_pid, dead_pname = parse_death(tag, message)
   if dead_pid:
     pids.remove(dead_pid)
-    linebuf  = '\n'
-    linebuf += colorize(' ' * (header_size - 1), bg=RED)
-    linebuf += ' Process %s (PID: %s) ended' % (dead_pname, dead_pid)
-    linebuf += '\n'
-    print(linebuf)
+    print '\n',
+    msg_columns = OrderedDict()
+    msg_columns['padding'] = Column(max_length=(width - columns['message'].max_length - 1),
+                                      always_first_line=args.always_tags)
+    msg_columns['message'] = Column(max_length=columns['message'].max_length)
+    msg_columns['padding'].message = ''
+    msg_columns['message'].message = 'Process %s (PID: %s) ended' %(
+      dead_pname, dead_pid)
+    print_message_columns(msg_columns, bg=RED)
+
     last_tag = None # Ensure next log gets a tag printed
 
   # Make sure the backtrace is printed after a native crash
@@ -268,30 +309,42 @@ while adb.poll() is None:
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
 
-  linebuf = ''
-
-  # right-align tag title and allocate color if needed
-  tag = tag.strip()
+  show_tags = False
   if tag != last_tag or args.always_tags:
     last_tag = tag
-    color = allocate_color(tag)
-    tag = tag[-args.tag_width:].rjust(args.tag_width)
-    linebuf += colorize(tag, fg=color)
-  else:
-    linebuf += ' ' * args.tag_width
-  linebuf += ' '
+    show_tags = True
 
-  # write out level colored edge
-  if level in TAGTYPES:
-    linebuf += TAGTYPES[level]
-  else:
-    linebuf += ' ' + level + ' '
-  linebuf += ' '
-
-  # format tag message using rules
+  columns['tag'].message = str(tag)
+  columns['level'].message = str(level)
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
+  columns['message'].message = unicode(message)
+  linebuf_col = ''
 
-  linebuf += indent_wrap(message)
-  print(linebuf.encode('utf-8'))
+  while True:
+    done = all([col.is_done() for col in columns.itervalues()])
+    if done:
+      break
+    for name,col in columns.iteritems():
+      formatted_line = col.get_line()
+
+      if name == 'tag':
+        if show_tags:
+          last_tag = tag
+          color = allocate_color(tag)
+          formatted_line = colorize(formatted_line, fg=color)
+        else:
+          formatted_line = ' ' * len(formatted_line)
+      elif name == 'level': # ensure line isn't filler space
+        if formatted_line in TAGTYPES:
+          formatted_line = TAGTYPES[formatted_line]
+        else:
+          formatted_line = ' ' + formatted_line + ' '
+
+      linebuf_col += formatted_line
+      linebuf_col += ' '
+
+    linebuf_col = linebuf_col[:-1]
+
+  print(linebuf_col.encode('utf-8'))
