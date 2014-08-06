@@ -263,7 +263,7 @@ while adb.poll() is None:
       message = message.lstrip()
       owner = app_pid
 
-  if owner not in pids:
+  if not pids and owner not in pids:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
