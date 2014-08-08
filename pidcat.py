@@ -39,6 +39,7 @@ parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial 
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
+parser.add_argument('-b', '--events-log', dest='add_events_log', action='store_true', help='Include the events log buffer. Useful for Samsung devices.')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -138,7 +139,8 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
+PID_START_MAIN = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
+PID_START_EVENTS = re.compile(r'^\[.*?(\d+),(\d+),([a-zA-Z0-9._:]+),[^,]+,([a-z]+[^],]+)\]$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
@@ -154,6 +156,9 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+if args.add_events_log:
+  # default seems to be main + system buffers
+  adb_command.extend(['-b', 'main', '-b', 'system', '-b', 'events'])
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -229,11 +234,17 @@ while adb.poll() is None:
 
   level, tag, owner, message = log_line.groups()
 
-  start = PID_START.match(message)
-  if start is not None:
-    line_package, target, line_pid, line_uid, line_gids = start.groups()
+  start_main = PID_START_MAIN.match(message)
+  if start_main is not None:
+    line_package, target, line_pid, line_uid, line_gids = start_main.groups()
 
-    if match_packages(line_package):
+  start_events = PID_START_EVENTS.match(message) if tag == 'am_proc_start' else None
+  if start_events is not None:
+    line_pid, line_uid, line_package, target = start_events.groups()
+    line_gids = '(not available)'
+
+  if start_main or start_events:
+    if match_packages(line_package) and line_pid not in pids:
       pids.add(line_pid)
       seen_pids = True
 
