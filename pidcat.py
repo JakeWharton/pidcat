@@ -22,28 +22,34 @@ limitations under the License.
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
-import os
 import sys
 import re
 import subprocess
 from subprocess import PIPE
-
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='*', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
-parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS, default='V', help='Minimum level to be displayed')
+parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('--always-display-tags', dest='always_tags', action='store_true',help='Always display the tag name')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
+parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', help='Filter output by specified tag')
 
 args = parser.parse_args()
-min_level = LOG_LEVELS_MAP[args.min_level]
+min_level = LOG_LEVELS_MAP[args.min_level.upper()]
+
+# Store the names of packages for which to match all processes.
+catchall_package = filter(lambda package: package.find(":") == -1, args.package)
+# Store the name of processes to match exactly.
+named_processes = filter(lambda package: package.find(":") != -1, args.package)
+# Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
+named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
@@ -94,6 +100,7 @@ KNOWN_TAGS = {
   'AndroidRuntime': CYAN,
   'jdwp': WHITE,
   'StrictMode': WHITE,
+  'DEBUG': YELLOW,
 }
 
 def allocate_color(tag):
@@ -133,11 +140,12 @@ TAGTYPES = {
 }
 
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
-PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._]+)/[^:]+: (.*)$')
-PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._]+) \(pid (\d+)\): .*$')
-PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._]+) \(pid (\d+)\) has died.?$')
+PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
+PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
+PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
+BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
 adb_command = ['adb']
 if args.device_serial:
@@ -148,35 +156,61 @@ if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
 
-adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+# Clear log before starting logcat
+if args.clear_logcat:
+  adb_clear_command = list(adb_command)
+  adb_clear_command.append('-c')
+  adb_clear = subprocess.Popen(adb_clear_command)
+
+  while adb_clear.poll() is None:
+    pass
+
+# This is a ducktype of the subprocess.Popen object
+class FakeStdinProcess():
+  def __init__(self):
+    self.stdout = sys.stdin
+  def poll(self):
+    return None
+
+if sys.stdin.isatty():
+  adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+else:
+  adb = FakeStdinProcess()
 pids = set()
+seen_pids = False
 last_tag = None
+app_pid = None
 
 def match_packages(token):
   if len(args.package) == 0:
     return True
+  if token in named_processes:
+    return True
   index = token.find(':')
-  return (token in args.package) if index == -1 else (token[:index] in args.package)
+  return (token in catchall_package) if index == -1 else (token[:index] in catchall_package)
 
 def parse_death(tag, message):
   if tag != 'ActivityManager':
-    return None
+    return None, None
   kill = PID_KILL.match(message)
   if kill:
     pid = kill.group(1)
-    if match_packages(kill.group(2)) and pid in pids:
-      return pid
+    package_line = kill.group(2)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
   leave = PID_LEAVE.match(message)
   if leave:
     pid = leave.group(2)
-    if match_packages(leave.group(1)) and pid in pids:
-      return pid
+    package_line = leave.group(1)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
   death = PID_DEATH.match(message)
   if death:
     pid = death.group(2)
-    if match_packages(death.group(1)) and pid in pids:
-      return pid
-  return None
+    package_line = death.group(1)
+    if match_packages(package_line) and pid in pids:
+      return pid, package_line
+  return None, None
 
 while adb.poll() is None:
   try:
@@ -202,27 +236,37 @@ while adb.poll() is None:
 
     if match_packages(line_package):
       pids.add(line_pid)
+      seen_pids = True
+
+      app_pid = line_pid
 
       linebuf  = '\n'
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += indent_wrap(' Process created for %s\n' % target)
+      linebuf += indent_wrap(' Process %s created for %s\n' % (line_package, target))
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
       linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
       linebuf += '\n'
       print(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
-  dead_pid = parse_death(tag, message)
+  dead_pid, dead_pname = parse_death(tag, message)
   if dead_pid:
     pids.remove(dead_pid)
     linebuf  = '\n'
     linebuf += colorize(' ' * (header_size - 1), bg=RED)
-    linebuf += ' Process %s ended' % dead_pid
+    linebuf += ' Process %s (PID: %s) ended' % (dead_pname, dead_pid)
     linebuf += '\n'
     print(linebuf)
     last_tag = None # Ensure next log gets a tag printed
+  # Make sure the backtrace is printed after a native crash
 
-  if owner not in pids:
+  if tag.strip() == 'DEBUG':
+    bt_line = BACKTRACE_LINE.match(message.lstrip())
+    if bt_line is not None:
+      message = message.lstrip()
+      owner = app_pid
+
+  if seen_pids and owner not in pids:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
