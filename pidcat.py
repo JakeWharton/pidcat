@@ -39,6 +39,7 @@ parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial 
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
+parser.add_argument('-t', '--tag', dest='tag', help='Filter output by specified tag')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -257,8 +258,8 @@ while adb.poll() is None:
     linebuf += '\n'
     print(linebuf)
     last_tag = None # Ensure next log gets a tag printed
-
   # Make sure the backtrace is printed after a native crash
+
   if tag.strip() == 'DEBUG':
     bt_line = BACKTRACE_LINE.match(message.lstrip())
     if bt_line is not None:
@@ -268,6 +269,8 @@ while adb.poll() is None:
   if seen_pids and owner not in pids:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
+    continue
+  if args.tag and tag != unicode(args.tag, 'utf-8'):
     continue
 
   linebuf = ''
