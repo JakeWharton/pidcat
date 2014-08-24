@@ -37,6 +37,7 @@ parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
 parser.add_argument('--always-display-tags', dest='always_tags', action='store_true',help='Always display the tag name')
+parser.add_argument('--current', dest='current_app', action='store_true',help='Filter logcat by current running app')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option)')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option)')
@@ -48,10 +49,17 @@ parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + _
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
+package = args.package
+
+if args.current_app:
+  system_dump = subprocess.Popen('adb shell dumpsys activity activities', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
+  running_package_name = re.search(".*Recent.*A=([^ ]*)", system_dump).group(1)
+  package.append(running_package_name)
+
 # Store the names of packages for which to match all processes.
-catchall_package = filter(lambda package: package.find(":") == -1, args.package)
+catchall_package = filter(lambda package: package.find(":") == -1, package)
 # Store the name of processes to match exactly.
-named_processes = filter(lambda package: package.find(":") != -1, args.package)
+named_processes = filter(lambda package: package.find(":") != -1, package)
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
@@ -189,7 +197,7 @@ last_tag = None
 app_pid = None
 
 def match_packages(token):
-  if len(args.package) == 0:
+  if len(package) == 0:
     return True
   if token in named_processes:
     return True
