@@ -48,8 +48,7 @@ min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 package = args.package
 
 if args.current_app:
-  system_dump = subprocess.Popen('adb shell dumpsys activity activities',shell=True,
-    stdout=PIPE,stderr=PIPE).communicate()[0]
+  system_dump = subprocess.Popen('adb shell dumpsys activity activities',shell=True, stdout=PIPE,stderr=PIPE).communicate()[0]
   running_package_name = re.search(".*Recent.*A=([^ ]*)",system_dump).group(1)
   package.append(running_package_name)
 
