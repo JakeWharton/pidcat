@@ -180,7 +180,7 @@ class FakeStdinProcess():
   def poll(self):
     return None
 
-if sys.stdin.isatty() :
+if sys.stdin.isatty():
   adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 else:
   adb = FakeStdinProcess()
