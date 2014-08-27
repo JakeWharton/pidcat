@@ -48,9 +48,9 @@ min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 package = args.package
 
 if args.current_app:
-  raw_ranning_package_name = subprocess.Popen('adb shell dumpsys activity activities|grep ".*Recent.*A="|head -n 1|sed -e "s/.*A=\([^ ]*\).*\$/\\1/g"',shell=True,
+  system_dump = subprocess.Popen('adb shell dumpsys activity activities',shell=True,
     stdout=PIPE,stderr=PIPE).communicate()[0]
-  running_package_name = raw_ranning_package_name.rstrip()
+  running_package_name = re.search(".*Recent.*A=([^ ]*)",system_dump).group(1)
   package.append(running_package_name)
 
 # Store the names of packages for which to match all processes.
@@ -181,7 +181,7 @@ class FakeStdinProcess():
   def poll(self):
     return None
 
-if sys.stdin.isatty():
+if sys.stdin.isatty() :
   adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 else:
   adb = FakeStdinProcess()
