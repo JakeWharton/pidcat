@@ -139,6 +139,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
+PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.]+)$')
 PID_START = re.compile(r'^Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
@@ -211,6 +212,24 @@ def parse_death(tag, message):
     if match_packages(package_line) and pid in pids:
       return pid, package_line
   return None, None
+
+ps_command = ['adb', 'shell', 'ps']
+ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+while ps_pid.poll() is None:
+    try:
+        line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
+    except KeyboardInterrupt:
+        break
+    if len(line) == 0:
+        break
+
+    pid_match = PID_LINE.match(line)
+    if pid_match is not None:
+        pid = pid_match.group(1)
+        proc = pid_match.group(2)
+        if proc in catchall_package:
+            seen_pids = True
+            pids.add(pid)
 
 while adb.poll() is None:
   try:
