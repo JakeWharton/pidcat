@@ -34,7 +34,7 @@ parser.add_argument('package', nargs='*', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
-parser.add_argument('--always-display-tags', dest='always_tags', action='store_true',help='Always display the tag name')
+parser.add_argument('--always-display-tags', dest='always_tags', action='store_true', default='always_tags', help='Always display the tag name')
 parser.add_argument('-s', '--serial', dest='device_serial', help='Device serial number (adb -s option)')
 parser.add_argument('-d', '--device', dest='use_device', action='store_true', help='Use first device for log input (adb -d option).')
 parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true', help='Use first emulator for log input (adb -e option).')
@@ -77,6 +77,8 @@ def colorize(message, fg=None, bg=None):
 def indent_wrap(message):
   if width == -1:
     return message
+  if level in TAGTYPES:
+    message = colorize(message, fg=MESSAGE_COLOR[level])
   message = message.replace('\t', '    ')
   wrap_area = width - header_size
   messagebuf = ''
@@ -101,6 +103,14 @@ KNOWN_TAGS = {
   'jdwp': WHITE,
   'StrictMode': WHITE,
   'DEBUG': YELLOW,
+}
+MESSAGE_COLOR = {
+  'V': WHITE,
+  'D': BLUE,
+  'I': GREEN,
+  'W': YELLOW,
+  'E': RED,
+  'F': RED,
 }
 
 def allocate_color(tag):
