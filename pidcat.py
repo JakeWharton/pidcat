@@ -148,13 +148,14 @@ LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
-adb_command = ['adb']
+base_adb_command = ['adb']
 if args.device_serial:
-  adb_command.extend(['-s', args.device_serial])
+  base_adb_command.extend(['-s', args.device_serial])
 if args.use_device:
-  adb_command.append('-d')
+  base_adb_command.append('-d')
 if args.use_emulator:
-  adb_command.append('-e')
+  base_adb_command.append('-e')
+adb_command = base_adb_command[:]
 adb_command.append('logcat')
 
 # Clear log before starting logcat
@@ -213,23 +214,23 @@ def parse_death(tag, message):
       return pid, package_line
   return None, None
 
-ps_command = ['adb', 'shell', 'ps']
+ps_command = base_adb_command + ['shell', 'ps']
 ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 while ps_pid.poll() is None:
-    try:
-        line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
-    except KeyboardInterrupt:
-        break
-    if len(line) == 0:
-        break
+  try:
+    line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
+  except KeyboardInterrupt:
+    break
+  if len(line) == 0:
+    break
 
-    pid_match = PID_LINE.match(line)
-    if pid_match is not None:
-        pid = pid_match.group(1)
-        proc = pid_match.group(2)
-        if proc in catchall_package:
-            seen_pids = True
-            pids.add(pid)
+  pid_match = PID_LINE.match(line)
+  if pid_match is not None:
+    pid = pid_match.group(1)
+    proc = pid_match.group(2)
+    if proc in catchall_package:
+      seen_pids = True
+      pids.add(pid)
 
 while adb.poll() is None:
   try:
