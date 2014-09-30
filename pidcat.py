@@ -177,7 +177,6 @@ if sys.stdin.isatty():
 else:
   adb = FakeStdinProcess()
 pids = set()
-seen_pids = False
 last_tag = None
 app_pid = None
 
@@ -236,7 +235,6 @@ while adb.poll() is None:
 
     if match_packages(line_package):
       pids.add(line_pid)
-      seen_pids = True
 
       app_pid = line_pid
 
@@ -266,7 +264,7 @@ while adb.poll() is None:
       message = message.lstrip()
       owner = app_pid
 
-  if seen_pids and owner not in pids:
+  if owner not in pids:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
