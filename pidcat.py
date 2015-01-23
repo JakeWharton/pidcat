@@ -147,7 +147,7 @@ PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
 if args.add_timestamp:
-  LOG_LINE = re.compile(r'^([0-9-:. ]*) ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+  LOG_LINE = re.compile(r'^[0-9-]+ ([0-9:.]+) ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 else:
   LOG_LINE = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
