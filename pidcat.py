@@ -41,6 +41,7 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
+parser.add_argument('--timestamp', dest='add_timestamp', action='store_true', help='Prepend each line of output with the current time.')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -145,7 +146,7 @@ PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+)
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE  = re.compile(r'^[0-9-]+ ([0-9:.]+) ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
@@ -157,6 +158,7 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+adb_command.extend(['-v', 'time'])
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -240,7 +242,7 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  time, level, tag, owner, message = log_line.groups()
   start = parse_start_proc(line)
   if start:
     line_package, target, line_pid, line_uid, line_gids = start
@@ -308,6 +310,9 @@ while adb.poll() is None:
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
+
+  if args.add_timestamp:
+    message = time + " | " + message
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
