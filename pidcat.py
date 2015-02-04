@@ -324,10 +324,10 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   timefields = []
-  if args.add_date:
+  if timestamp and args.add_date:
     timefields.append(timestamp.split(' ', 1)[0])
 
-  if args.add_time:
+  if timestamp and args.add_time:
     timefields.append(timestamp.split(' ', 1)[1])
 
   if len(timefields):
