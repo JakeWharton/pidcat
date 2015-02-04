@@ -41,6 +41,8 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
+parser.add_argument('--time', dest='add_time', action='store_true', help='Include the timestamp in the log output')
+parser.add_argument('--date', dest='add_date', action='store_true', help='Include the date in the log output')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -145,7 +147,7 @@ PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+)
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE  = re.compile(r'^(?P<timestamp>\d{2}\-\d{2}\s+\d{2}\:\d{2}\:\d{2}\.\d{3})?\s*(?P<level>[A-Z])/(?P<tag>.+?)\( *(?P<owner>\d+)\): (?P<message>.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
@@ -157,6 +159,10 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+
+if args.add_time or args.add_date:
+  adb_command.append('-v')
+  adb_command.append('time')
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -240,7 +246,15 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  timestamp = ''
+  if 'timestamp' in log_line.groupdict():
+    timestamp = log_line.group('timestamp')
+
+  level = log_line.group('level')
+  tag = log_line.group('tag')
+  owner = log_line.group('owner')
+  message = log_line.group('message')
+ 
   start = parse_start_proc(line)
   if start:
     line_package, target, line_pid, line_uid, line_gids = start
@@ -308,6 +322,16 @@ while adb.poll() is None:
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
+
+  timefields = []
+  if args.add_date:
+    timefields.append(timestamp.split(' ', 1)[0])
+
+  if args.add_time:
+    timefields.append(timestamp.split(' ', 1)[1])
+
+  if len(timefields):
+      message = ' '.join(timefields) + " | " + message
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
