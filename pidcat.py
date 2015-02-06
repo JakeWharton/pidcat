@@ -133,7 +133,7 @@ KNOWN_TAGS = {
 IGNORE_TAGS = []
 
 if args.ignore_list:
-    IGNORE_TAGS += [line for line in open(args.ignore_list[0], 'r').read().split("\n") if not line.startswith("#") and len(line)]
+    IGNORE_TAGS += [line for line in open(args.ignore_list[0], 'r').read().split("\n") if not line.startswith("#") and line.strip()]
 
 
 def allocate_color(tag):
