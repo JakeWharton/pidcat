@@ -8,8 +8,8 @@ During application development you often want to only display log messages
 coming from your app. Unfortunately, because the process ID changes every time
 you deploy to the phone it becomes a challenge to grep for the right thing.
 
-This script solves that problem by filtering by application package. Supply the
-target package as the sole argument to the python script and enjoy a more
+This script solves that problem by filtering the logs by application package name.
+Supply the target package as the sole argument to the python script and enjoy a more
 convenient development process.
 
     pidcat com.oprah.bees.android
@@ -42,6 +42,15 @@ To include `adb` and other android tools on your path:
     export PATH=$PATH:<path to Android SDK>/tools
 
 Include these lines in your `.bashrc` or `.zshrc`.
+
+Usage
+-----
+    pidcat.py [-h] [-w N] [-l {V,D,I,W,E,F,v,d,i,w,e,f}] [--color-gc]
+              [--always-display-tags] [-s DEVICE_SERIAL] [-d] [-e] [-c]
+              [-t TAG] [-i IGNORED_TAG] [--verbose]
+              [package [package ...]]
+
+You can pass more than one package name at a time.
 
 
 
