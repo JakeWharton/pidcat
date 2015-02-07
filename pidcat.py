@@ -20,12 +20,15 @@ limitations under the License.
 # Originally written by Jeff Sharkey, http://jsharkey.org/
 # Piping detection and popen() added by other Android team members
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
+# Verbose mode, input key listener and time stamps added by Mike Wallace, http://www.risesoftware.com
 
 import argparse
 import sys
 import re
 import subprocess
 from subprocess import PIPE
+import os
+import threading
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -41,9 +44,15 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
+parser.add_argument('--verbose', dest='verbose', action='store_true', help='Shows all logcat lines and some script debub info')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
+
+VERBOSE = args.verbose
+
+if not args.package :
+  print "Warning: No package name provided"
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, args.package)
@@ -75,6 +84,41 @@ def termcolor(fg=None, bg=None):
 def colorize(message, fg=None, bg=None):
   return termcolor(fg, bg) + message + RESET
 
+# Defining the getch() function. Will use msvcrt's in Windows, and raw keystrokes in Linux
+try:
+  from msvcrt import getch
+except ImportError:
+  def getch():
+    """Gets a single character from STDIO."""
+    import sys
+    import tty
+    import termios
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+      tty.setraw(fd)
+      ch =  sys.stdin.read(1)
+    finally:
+      termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    return ch
+
+class KeyEventThread(threading.Thread):
+    def run(self):
+      while True:
+        key = getch()
+        value = ord(key)
+        if value == 32 or value == 67 or value == 99:
+          # clear screen on 'c', 'C', or space
+          os.system("clear")
+          # Print this line so that the user knows they are still in adb
+          linebuf = colorize(' ' * (header_size - 1), bg=WHITE)
+          linebuf += ' Cleared.  adb is running...'
+          print(linebuf)
+        elif ord(key) == 3:  # Ctrl-C
+          adb.terminate()
+          exit()
+
 def indent_wrap(message):
   if width == -1:
     return message
@@ -86,7 +130,7 @@ def indent_wrap(message):
     next = min(current + wrap_area, len(message))
     messagebuf += message[current:next]
     if next < len(message):
-      messagebuf += '\n'
+      messagebuf += '\r\n'
       messagebuf += ' ' * header_size
     current = next
   return messagebuf
@@ -140,12 +184,12 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
+PID_START = re.compile(r'^.*(\d+:\d+:\d+).*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE  = re.compile(r'^.*(\d+:\d+:\d+).* ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
@@ -157,6 +201,11 @@ if args.use_device:
 if args.use_emulator:
   adb_command.append('-e')
 adb_command.append('logcat')
+adb_command.append('-v')
+adb_command.append('time')
+
+if VERBOSE == True:
+  print "adb_command " + str(adb_command)
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -181,6 +230,13 @@ else:
 pids = set()
 last_tag = None
 app_pid = None
+
+if VERBOSE == True:
+  print "adb is runnnig..."
+
+# Start the thread that checks for keystrokes
+keythread = KeyEventThread()
+keythread.start()
 
 def match_packages(token):
   if len(args.package) == 0:
@@ -216,8 +272,8 @@ def parse_death(tag, message):
 def parse_start_proc(line):
   start = PID_START.match(line)
   if start is not None:
-    line_package, target, line_pid, line_uid, line_gids = start.groups()
-    return line_package, target, line_pid, line_uid, line_gids
+    log_time, line_package, target, line_pid, line_uid, line_gids = start.groups()
+    return log_time, line_package, target, line_pid, line_uid, line_gids
   start = PID_START_DALVIK.match(line)
   if start is not None:
     line_pid, line_package, line_uid = start.groups()
@@ -232,6 +288,9 @@ while adb.poll() is None:
   if len(line) == 0:
     break
 
+  if VERBOSE == True:
+    print line, "\r"
+
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
     continue
@@ -240,31 +299,36 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  log_time, level, tag, owner, message = log_line.groups()
   start = parse_start_proc(line)
   if start:
-    line_package, target, line_pid, line_uid, line_gids = start
+    log_time, line_package, target, line_pid, line_uid, line_gids = start
     if match_packages(line_package):
       pids.add(line_pid)
 
       app_pid = line_pid
 
-      linebuf  = '\n'
+      linebuf  = '\r\n'
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += indent_wrap(' Process %s created for %s\n' % (line_package, target))
+      linebuf += indent_wrap(' Process %s created for %s\r\n' % (line_package, target))
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
-      linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
-      linebuf += '\n'
+      linebuf += ' PID: %s   UID: %s   GIDs: %s\r\n' % (line_pid, line_uid, line_gids)
+      linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
+      linebuf += ' Start time: %s' % log_time
+      linebuf += '\r'
       print(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
   dead_pid, dead_pname = parse_death(tag, message)
   if dead_pid:
     pids.remove(dead_pid)
-    linebuf  = '\n'
+    linebuf  = '\r\n'
     linebuf += colorize(' ' * (header_size - 1), bg=RED)
     linebuf += ' Process %s (PID: %s) ended' % (dead_pname, dead_pid)
-    linebuf += '\n'
+    linebuf += '\r\n'
+    linebuf += colorize(' ' * (header_size - 1), bg=RED)
+    linebuf += ' End time: %s' % log_time
+    linebuf += '\r\n'
     print(linebuf)
     last_tag = None # Ensure next log gets a tag printed
 
@@ -310,4 +374,4 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print(linebuf.encode('utf-8'))
+  print linebuf.encode('utf-8'), "\r"
