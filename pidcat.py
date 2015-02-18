@@ -143,6 +143,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
+PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.]+)$')
 PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
@@ -152,13 +153,14 @@ LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
-adb_command = ['adb']
+base_adb_command = ['adb']
 if args.device_serial:
-  adb_command.extend(['-s', args.device_serial])
+  base_adb_command.extend(['-s', args.device_serial])
 if args.use_device:
-  adb_command.append('-d')
+  base_adb_command.append('-d')
 if args.use_emulator:
-  adb_command.append('-e')
+  base_adb_command.append('-e')
+adb_command = base_adb_command[:]
 adb_command.append('logcat')
 
 # Clear log before starting logcat
@@ -226,6 +228,24 @@ def parse_start_proc(line):
     line_pid, line_package, line_uid = start.groups()
     return line_package, '', line_pid, line_uid, ''
   return None
+
+ps_command = base_adb_command + ['shell', 'ps']
+ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+while ps_pid.poll() is None:
+  try:
+    line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
+  except KeyboardInterrupt:
+    break
+  if len(line) == 0:
+    break
+
+  pid_match = PID_LINE.match(line)
+  if pid_match is not None:
+    pid = pid_match.group(1)
+    proc = pid_match.group(2)
+    if proc in catchall_package:
+      seen_pids = True
+      pids.add(pid)
 
 while adb.poll() is None:
   try:
