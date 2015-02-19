@@ -49,10 +49,10 @@ parser.add_argument('--verbose', dest='verbose', action='store_true', help='Show
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
-VERBOSE = args.verbose
+verbose = args.verbose
 
 if not args.package :
-  print "Warning: No package name provided"
+  print ("Warning: No package name provided\r")
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, args.package)
@@ -113,7 +113,7 @@ class KeyEventThread(threading.Thread):
           os.system("clear")
           # Print this line so that the user knows they are still in adb
           linebuf = colorize(' ' * (header_size - 1), bg=WHITE)
-          linebuf += ' Cleared.  adb is running...'
+          linebuf += ' Cleared.  adb is running...\r'
           print(linebuf)
         elif ord(key) == 3:  # Ctrl-C
           adb.terminate()
@@ -204,8 +204,9 @@ adb_command.append('logcat')
 adb_command.append('-v')
 adb_command.append('time')
 
-if VERBOSE == True:
-  print "adb_command " + str(adb_command)
+if verbose:
+  linebuf = "adb_command " + str(adb_command) + "\r"
+  print (linebuf)
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -231,8 +232,8 @@ pids = set()
 last_tag = None
 app_pid = None
 
-if VERBOSE == True:
-  print "adb is runnnig..."
+if verbose:
+  print ("adb is runnnig...\r")
 
 # Start the thread that checks for keystrokes
 keythread = KeyEventThread()
@@ -288,8 +289,9 @@ while adb.poll() is None:
   if len(line) == 0:
     break
 
-  if VERBOSE == True:
-    print line, "\r"
+  if verbose:
+    linebuf = line + "\r"
+    print (linebuf)
 
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
@@ -374,4 +376,7 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print linebuf.encode('utf-8'), "\r"
+  linebuf += "\r"
+
+  #~  print (linebuf.encode('utf-8'))
+  print (linebuf)
