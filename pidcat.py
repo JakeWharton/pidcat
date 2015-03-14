@@ -145,6 +145,7 @@ TAGTYPES = {
 
 PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.]+)$')
 PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
+PID_START_5_1 = re.compile(r'^.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
 PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
 PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
@@ -219,6 +220,10 @@ def parse_death(tag, message):
   return None, None
 
 def parse_start_proc(line):
+  start = PID_START_5_1.match(line)
+  if start is not None:
+    line_pid, line_package, target = start.groups()
+    return line_package, target, line_pid, '', ''
   start = PID_START.match(line)
   if start is not None:
     line_package, target, line_pid, line_uid, line_gids = start.groups()
