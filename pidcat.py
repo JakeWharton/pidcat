@@ -234,6 +234,9 @@ def parse_start_proc(line):
     return line_package, '', line_pid, line_uid, ''
   return None
 
+def tag_in_tags_regex(tag, tags):  
+  return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
+
 ps_command = base_adb_command + ['shell', 'ps']
 ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 while ps_pid.poll() is None:
@@ -269,6 +272,7 @@ while adb.poll() is None:
     continue
 
   level, tag, owner, message = log_line.groups()
+  tag = tag.strip()
   start = parse_start_proc(line)
   if start:
     line_package, target, line_pid, line_uid, line_gids = start
@@ -297,7 +301,7 @@ while adb.poll() is None:
     last_tag = None # Ensure next log gets a tag printed
 
   # Make sure the backtrace is printed after a native crash
-  if tag.strip() == 'DEBUG':
+  if tag == 'DEBUG':
     bt_line = BACKTRACE_LINE.match(message.lstrip())
     if bt_line is not None:
       message = message.lstrip()
@@ -307,15 +311,14 @@ while adb.poll() is None:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
-  if args.ignored_tag and tag.strip() in args.ignored_tag:
+  if args.ignored_tag and tag_in_tags_regex(tag, args.ignored_tag):
     continue
-  if args.tag and tag.strip() not in args.tag:
+  if args.tag and not tag_in_tags_regex(tag, args.tag):
     continue
 
   linebuf = ''
 
   # right-align tag title and allocate color if needed
-  tag = tag.strip()
   if tag != last_tag or args.always_tags:
     last_tag = tag
     color = allocate_color(tag)
