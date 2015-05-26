@@ -33,6 +33,7 @@ LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='*', help='Application package name(s)')
+parser.add_argument('-W', '--width', metavar='N', dest='width', type=int, default=-1, help='Override word wrap width.')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=22, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
@@ -65,13 +66,14 @@ named_processes = map(lambda package: package if package.find(":") != len(packag
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
-width = -1
-try:
-  # Get the current terminal width
-  import fcntl, termios, struct
-  h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
-except:
-  pass
+width = args.width
+if width < 0:
+  try:
+    # Get the current terminal width
+    import fcntl, termios, struct
+    h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
+  except:
+    pass
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
