@@ -29,6 +29,11 @@ Get the script:
 
          brew install pidcat
 
+    If you need to install the latest development version
+
+        brew unlink pidcat  
+        brew install --HEAD pidcat
+  
  * Others: Download the `pidcat.py` and place it on your PATH.
 
 
