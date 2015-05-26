@@ -20,6 +20,7 @@ Version 2.0.0 *(2015-05-25)*
  * Fix: Properly match process birth & death from secondary processes.
  * Fix: Support leading spaces in PID numbers.
  * Fix: Default maximum tag length is now 23 (Android's maximum length).
+ * Fix: Properly parse Android 5.1+ birth & death messages.
 
 
 Version 1.4.1 *(2014-01-09)*
