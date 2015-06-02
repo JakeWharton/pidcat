@@ -22,6 +22,7 @@ limitations under the License.
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
+import os
 import sys
 import re
 import subprocess
@@ -29,9 +30,10 @@ from subprocess import PIPE
 
 __version__ = '2.0.0'
 
+FROMFILE_PREFIX='@'
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
-parser = argparse.ArgumentParser(description='Filter logcat by package name')
+parser = argparse.ArgumentParser(description='Filter logcat by package name', fromfile_prefix_chars=FROMFILE_PREFIX)
 parser.add_argument('package', nargs='*', help='Application package name(s)')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=23, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
@@ -46,7 +48,10 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 
-args = parser.parse_args()
+CONF_FILES = [ os.path.expanduser('~/.pidcat.conf'), './.pidcat.conf' ]
+argv = [ '%s%s' % (FROMFILE_PREFIX, conf) for conf in CONF_FILES if os.path.isfile(conf) ]
+argv.extend(sys.argv[1:])
+args = parser.parse_args(argv)
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
 package = args.package
