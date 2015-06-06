@@ -171,6 +171,7 @@ if args.use_emulator:
   base_adb_command.append('-e')
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
+adb_command.extend(['-v', 'brief'])
 
 # Clear log before starting logcat
 if args.clear_logcat:
