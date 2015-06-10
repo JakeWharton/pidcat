@@ -51,9 +51,18 @@ min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
 package = args.package
 
+base_adb_command = ['adb']
+if args.device_serial:
+  base_adb_command.extend(['-s', args.device_serial])
+if args.use_device:
+  base_adb_command.append('-d')
+if args.use_emulator:
+  base_adb_command.append('-e')
+
 if args.current_app:
-  system_dump = subprocess.Popen('adb shell dumpsys activity activities', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
-  running_package_name = re.search(".*Recent.*A=([^ ]*)", system_dump).group(1)
+  system_dump_command = base_adb_command + ["shell", "dumpsys", "activity", "activities"]
+  system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
+  running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
   package.append(running_package_name)
 
 # Store the names of packages for which to match all processes.
@@ -162,13 +171,6 @@ LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
-base_adb_command = ['adb']
-if args.device_serial:
-  base_adb_command.extend(['-s', args.device_serial])
-if args.use_device:
-  base_adb_command.append('-d')
-if args.use_emulator:
-  base_adb_command.append('-e')
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
 adb_command.extend(['-v', 'brief'])
