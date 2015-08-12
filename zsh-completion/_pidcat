@@ -43,7 +43,7 @@
 _pidcat() {
   typeset -A opt_args
   local context state line curcontext="$curcontext" pidcat_args
-
+  fullcmd=$words
   local ret=1
 
   _arguments -C \
@@ -63,7 +63,7 @@ _pidcat() {
     '*:: :_pidcat_processes' \
   && ret=0
 
-  pidcat_args="${(fkv)opt_args[(I)-d|-e|-s]}"
+  #pidcat_args="${(fkv)words[(I)-d|-e|-s]}"
 
   return ret
 }
@@ -91,7 +91,20 @@ _pidcat_serial_numbers() {
 
 (( $+functions[_pidcat_processes] )) ||
 _pidcat_processes() {
-  local proclist; proclist=(${${${(ps:\r:)"$(_call_program proclist adb $pidcat_args shell ps 2>&1)"}##*\ [S|D|R]\ }:#USER\ *})
+  device=""
+  if [[ $fullcmd =~ '.*-d.*' ]];
+  then
+      device=$device" -d "
+  fi
+  if [[ $fullcmd =~ '.*-e.*' ]];
+  then
+      device=$device" -e "
+  fi
+  if [[ $fullcmd =~ '.*[[:space:]]*(-s[[:space:]]*[[:alnum:]|.|:]*).*' ]];
+  then
+      device=" "$device${match[1]}" "
+  fi
+  local proclist; proclist=(${${${(ps:\r:)"$(_call_program proclist adb $device shell ps 2>/dev/null)"}##*\ [S|D|R]\ }:#USER\ *})
   _multi_parts "$@" / proclist
 }
 
