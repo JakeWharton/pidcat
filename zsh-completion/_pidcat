@@ -63,8 +63,7 @@ _pidcat() {
     '*:: :_pidcat_processes' \
   && ret=0
 
-  #pidcat_args="${(fkv)opt_args[(I)-d|-e|-s]}"
-  #pidcat_args="${opt_args[(I)-d|-e|-s]}"
+  pidcat_args="${(fkv)opt_args[(I)-d|-e|-s]}"
 
   return ret
 }
@@ -92,7 +91,7 @@ _pidcat_serial_numbers() {
 
 (( $+functions[_pidcat_processes] )) ||
 _pidcat_processes() {
-  local proclist; proclist=(${${(ps:\r\n:)"$(_call_program proclist adb $pidcat_args shell ps 2>&1)"}:#\**\*})
+  local proclist; proclist=(${${${(ps:\r:)"$(_call_program proclist adb $pidcat_args shell ps 2>&1)"}##*\ [S|D|R]\ }:#USER\ *})
   _multi_parts "$@" / proclist
 }
 
