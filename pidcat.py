@@ -27,7 +27,7 @@ import re
 import subprocess
 from subprocess import PIPE
 
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -45,6 +45,7 @@ parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', h
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
+parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -64,6 +65,9 @@ if args.current_app:
   system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
   running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
   package.append(running_package_name)
+
+if len(package) == 0:
+    args.all = True
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, package)
@@ -160,7 +164,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.]+)$')
+PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.|\/]+)$')
 PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_START_5_1 = re.compile(r'^.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
@@ -318,7 +322,7 @@ while adb.poll() is None:
       message = message.lstrip()
       owner = app_pid
 
-  if owner not in pids:
+  if not args.all and owner not in pids:
     continue
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
     continue
