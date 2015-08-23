@@ -67,7 +67,7 @@ if args.current_app:
   package.append(running_package_name)
 
 if len(package) == 0:
-    args.all = True
+  args.all = True
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, package)
