@@ -41,6 +41,9 @@ Make sure that `adb` from the [Android SDK][3] is on your PATH. This script will
 not work unless this is that case. That means, when you type `adb` and press
 enter into your terminal something actually happens.
 
+On Windows, you can do `pip install colorama` if you see weird arrows instead of
+colors. In case that does not help, try using option `-f`.
+
 To include `adb` and other android tools on your path:
 
     export PATH=$PATH:<path to Android SDK>/platform-tools

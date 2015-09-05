@@ -27,7 +27,7 @@ import re
 import subprocess
 from subprocess import PIPE
 
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -46,6 +46,7 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+parser.add_argument('-f', '--force-windows-colors', dest='force_windows_colors', action='store_true', default=False, help='Force converting colors to Windows format')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -85,6 +86,13 @@ try:
   h, width = struct.unpack('hh', fcntl.ioctl(0, termios.TIOCGWINSZ, struct.pack('hh', 0, 0)))
 except:
   pass
+
+try:
+  import colorama
+  colorama.init(convert=args.force_windows_colors)
+except ImportError:
+  if args.force_windows_colors:
+    raise
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
