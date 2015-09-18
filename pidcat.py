@@ -254,7 +254,7 @@ def tag_in_tags_regex(tag, tags):
 
 ps_command = base_adb_command + ['shell', 'ps']
 ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-while ps_pid.poll() is None:
+while True:
   try:
     line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
   except KeyboardInterrupt:
