@@ -77,7 +77,7 @@ named_processes = filter(lambda package: package.find(":") != -1, package)
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
-header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+header_size = args.tag_width + 1 + 3 + 1 + (18 if args.time else 0) # space, level, space
 
 width = -1
 try:
