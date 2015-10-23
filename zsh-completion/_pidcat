@@ -58,6 +58,7 @@ _pidcat() {
     '-l[Minimum level to be displayed]: :_pidcat_log_levels' \
     '-a[Print all log messages]' \
     '--color-gc[Color garbage collection]' \
+    '--time[Print time]' \
     '--always-display-tags[Always display the tag name]' \
     '--current[Filter logcat by current running app]' \
     '*:: :_pidcat_processes' \
