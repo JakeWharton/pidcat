@@ -78,6 +78,8 @@ named_processes = filter(lambda package: package.find(":") != -1, package)
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+if args.add_timestamp:
+  header_size += 12 + 1 # time, space
 
 width = -1
 try:
@@ -350,14 +352,13 @@ while adb.poll() is None:
   else:
     linebuf += ' ' + level + ' '
   linebuf += ' '
+  if args.add_timestamp:
+    linebuf = time + ' ' + linebuf
 
   # format tag message using rules
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
-
-  if args.add_timestamp:
-    message = time + " | " + message
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
