@@ -1,0 +1,73 @@
+
+function _pidcat()
+{
+  local cur prev opts cmds c subcommand device_selected
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  prevprev="${COMP_WORDS[COMP_CWORD-2]}"
+  opts="-d -e -h -l -s -w
+        --always-display-tags --color-gc --device --emulator --help --min-level
+        --serial --tag-width"
+  device_selected=""
+
+  # if there are multiple devices plugged in, prompt the user to specify which
+  # so that the list of installed packaged can be fetched from the device
+
+  case "${prev}" in
+      -d|-e|--device|--emulator)
+          device_selected="${prev}"
+          ;;
+  esac
+
+  # use device set by serial number
+  case "${prevprev}" in
+      -s|--serial)
+          device_selected="-s ${prev}"
+          ;;
+  esac
+
+  if [ -z "$device_selected" ]; then
+      local num_devices=$(( $(adb devices 2>/dev/null|wc -l) - 2 ))
+      if [ "$num_devices" -gt "1" ]; then
+          # With multiple devices, you must choose a device first.
+          COMPREPLY=( $(compgen -W "-d -e -s --device --emulator --serial" -- ${cur}) )
+          return 0
+      fi
+  fi
+
+  case "${cur}" in
+      -*)
+          COMPREPLY=( $(compgen -W "$opts" -- ${cur}) )
+          return 0
+          ;;
+  esac
+
+  case "${prev}" in
+      -l|--min-level)
+          COMPREPLY=( $(compgen -W "V D I W E F" -- ${cur}) )
+          return 0;
+          ;;
+      -s|--serial)
+          if [ -z "$device_selected" ]; then
+              # Use 'adb devices' to list serial numbers.
+              COMPREPLY=( $(compgen -W "$(adb devices|grep 'device$'|cut -f1)" -- ${cur} ) )
+              return 0
+          fi
+          ;;
+  esac
+
+  # if we can get the package names, then use those
+  local apks=$(adb $device_selected shell ls /data/data 2>/dev/null | tr '\n' ' ' | tr -d '\r')
+  COMPREPLY=( $(compgen -W "$apks" -- ${cur}) )
+  return 0
+}
+complete -F _pidcat pidcat
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh

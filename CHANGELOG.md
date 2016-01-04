@@ -1,6 +1,28 @@
 Change Log
 ==========
 
+Version 2.0.0 *(2015-05-25)*
+----------------------------
+
+ * New: Display package and process name in birth & death messages.
+ * New: Process can be matched in addition to package. For example `com.android.chrome` will match
+   all of Chrome's processes, `com.android.chrome:` will match only its main process, and
+   `com.android.chrome:sandboxed_process1` will match that specific process name.
+ * New: `-c` option clears log before reading logs.
+ * New: If data is piped to `pidcat` it will be used as the log source instead of `adb`.
+ * New: `-t` / `--tag` option allows filtering by tag name (regex supported).
+ * New: `-i` / `--ignore-tag` option allows filtering out tags from the logs by name (regex supported).
+ * New: `--version` option reports Pidcat's version.
+ * New: Obtain unknown process IDs of currently-running apps.
+ * New: `--current` option uses the package of the currently visible app for filtering.
+ * New: Bash completion support for package names and device names. Requires manual installation of
+   file in `bash_completion.d/`.
+ * Fix: Properly match process birth & death from secondary processes.
+ * Fix: Support leading spaces in PID numbers.
+ * Fix: Default maximum tag length is now 23 (Android's maximum length).
+ * Fix: Properly parse Android 5.1+ birth & death messages.
+
+
 Version 1.4.1 *(2014-01-09)*
 ----------------------------
 
