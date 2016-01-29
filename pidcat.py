@@ -334,7 +334,7 @@ while adb.poll() is None:
   linebuf = ''
 
   # right-align tag title and allocate color if needed
-  if tag != last_tag or args.always_tags:
+  if (tag != last_tag or args.always_tags) and args.tag_width > 0:
     last_tag = tag
     color = allocate_color(tag)
     tag = tag[-args.tag_width:].rjust(args.tag_width)
