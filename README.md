@@ -48,6 +48,13 @@ To include `adb` and other android tools on your path:
 
 Include these lines in your `.bashrc` or `.zshrc`.
 
+CONFIGURATION
+-------------
+
+Arguments can be specified at the command line or in one of the following config files: ~/.pidcat.conf or ./.pidcat.conf
+
+         cat ~/.pidcat.conf
+         --min-level=D
 
 
  [1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/
