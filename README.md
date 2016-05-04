@@ -48,7 +48,7 @@ To include `adb` and other android tools on your path:
 
 Include these lines in your `.bashrc` or `.zshrc`.
 
-
+*Note:* `<path to Android SDK>` should be absolute and not relative.
 
  [1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/
  [2]: http://brew.sh
