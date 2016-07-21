@@ -44,20 +44,29 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
-parser.add_argument('--verbose', dest='verbose', action='store_true', help='Shows all logcat lines and some script debub info')
+parser.add_argument('--verbose', dest='verbose', action='store_true', help='Shows all logcat lines and some script debug info')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
 verbose = args.verbose
 
-if not args.package :
+if not args.package:
   print ("Warning: No package name provided\r")
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, args.package)
+
+if verbose:
+  print ("catchall_package" + str(catchall_package))
+  
 # Store the name of processes to match exactly.
 named_processes = filter(lambda package: package.find(":") != -1, args.package)
+
+if verbose:
+  print ("named_processes" + str(named_processes))
+
+
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
@@ -97,7 +106,7 @@ except ImportError:
     old = termios.tcgetattr(fd)
     try:
       tty.setraw(fd)
-      ch =  sys.stdin.read(1)
+      ch = sys.stdin.read(1)
     finally:
       termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -196,10 +205,13 @@ BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 adb_command = ['adb']
 if args.device_serial:
   adb_command.extend(['-s', args.device_serial])
+
 if args.use_device:
   adb_command.append('-d')
+
 if args.use_emulator:
   adb_command.append('-e')
+
 adb_command.append('logcat')
 adb_command.append('-v')
 adb_command.append('time')
