@@ -44,20 +44,29 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running.')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
-parser.add_argument('--verbose', dest='verbose', action='store_true', help='Shows all logcat lines and some script debub info')
+parser.add_argument('--verbose', dest='verbose', action='store_true', help='Shows all logcat lines and some script debug info')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
-VERBOSE = args.verbose
+verbose = args.verbose
 
-if not args.package :
-  print "Warning: No package name provided"
+if not args.package:
+  print ("Warning: No package name provided\r")
 
 # Store the names of packages for which to match all processes.
 catchall_package = filter(lambda package: package.find(":") == -1, args.package)
+
+if verbose:
+  print ("catchall_package" + str(catchall_package))
+  
 # Store the name of processes to match exactly.
 named_processes = filter(lambda package: package.find(":") != -1, args.package)
+
+if verbose:
+  print ("named_processes" + str(named_processes))
+
+
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
@@ -97,7 +106,7 @@ except ImportError:
     old = termios.tcgetattr(fd)
     try:
       tty.setraw(fd)
-      ch =  sys.stdin.read(1)
+      ch = sys.stdin.read(1)
     finally:
       termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -113,7 +122,7 @@ class KeyEventThread(threading.Thread):
           os.system("clear")
           # Print this line so that the user knows they are still in adb
           linebuf = colorize(' ' * (header_size - 1), bg=WHITE)
-          linebuf += ' Cleared.  adb is running...'
+          linebuf += ' Cleared.  adb is running...\r'
           print(linebuf)
         elif ord(key) == 3:  # Ctrl-C
           adb.terminate()
@@ -196,16 +205,20 @@ BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 adb_command = ['adb']
 if args.device_serial:
   adb_command.extend(['-s', args.device_serial])
+
 if args.use_device:
   adb_command.append('-d')
+
 if args.use_emulator:
   adb_command.append('-e')
+
 adb_command.append('logcat')
 adb_command.append('-v')
 adb_command.append('time')
 
-if VERBOSE == True:
-  print "adb_command " + str(adb_command)
+if verbose:
+  linebuf = "adb_command " + str(adb_command) + "\r"
+  print (linebuf)
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -231,8 +244,8 @@ pids = set()
 last_tag = None
 app_pid = None
 
-if VERBOSE == True:
-  print "adb is runnnig..."
+if verbose:
+  print ("adb is runnnig...\r")
 
 # Start the thread that checks for keystrokes
 keythread = KeyEventThread()
@@ -288,8 +301,9 @@ while adb.poll() is None:
   if len(line) == 0:
     break
 
-  if VERBOSE == True:
-    print line, "\r"
+  if verbose:
+    linebuf = line + "\r"
+    print (linebuf)
 
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
@@ -374,4 +388,7 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print linebuf.encode('utf-8'), "\r"
+  linebuf += "\r"
+
+  #~  print (linebuf.encode('utf-8'))
+  print (linebuf)
