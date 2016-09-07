@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 2.1.0 *(2016-09-07)*
+----------------------------
+
+ * New: Explicitly run `adb` in 'brief' mode to ensure proper parsing.
+ * New: `-a` / `--all` flag shows all logs.
+ * Fix: Setting a tag width to 0 now correctly removes tags.
+
+
 Version 2.0.0 *(2015-05-25)*
 ----------------------------
 
