@@ -175,6 +175,16 @@ LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
+def set_term_title(title):
+  sys.stdout.write("\033]0;%s\a" % title)
+
+def clear_term_title():
+  set_term_title("")
+
+device_name_command = base_adb_command + ["shell", "getprop", "ro.product.model"]
+device_name = subprocess.Popen(device_name_command, stdout=PIPE, stderr=PIPE).communicate()[0]
+set_term_title(device_name)
+
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
 adb_command.extend(['-v', 'brief'])
@@ -358,3 +368,5 @@ while adb.poll() is None:
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
+
+clear_term_title()
