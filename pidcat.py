@@ -44,6 +44,7 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
+parser.add_argument('--proguard-mapping', dest='proguard_mapping', action='store', help='Use proguard mapping to translate the input tag names')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 
@@ -65,6 +66,18 @@ if args.current_app:
   system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
   running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
   package.append(running_package_name)
+
+PROGUARD_MAPPING = re.compile(r'^([\w$\.]+)\s->\s*([\w$\.]+)')
+
+proguard_mapping = {}
+if args.proguard_mapping:
+  with open(args.proguard_mapping) as fr:
+    for line in fr:
+      mapping_match = PROGUARD_MAPPING.match(line.strip())
+      if mapping_match is not None:
+        from_ = mapping_match.group(1)
+        to = mapping_match.group(2)
+        proguard_mapping[to] = from_
 
 if len(package) == 0:
   args.all = True
@@ -288,6 +301,7 @@ while adb.poll() is None:
 
   level, tag, owner, message = log_line.groups()
   tag = tag.strip()
+  tag = proguard_mapping.get(tag, tag)
   start = parse_start_proc(line)
   if start:
     line_package, target, line_pid, line_uid, line_gids = start
