@@ -25,7 +25,6 @@ import argparse
 import sys
 import re
 import subprocess
-import json
 from subprocess import PIPE
 
 __version__ = '2.1.0'
@@ -45,7 +44,6 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
-parser.add_argument('-j', '--json-tag', dest='json_tag', action='append', help='Format output in JSON form for the specified tag(s)')  
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 
@@ -104,7 +102,6 @@ def colorize(message, fg=None, bg=None):
 def indent_wrap(message):
   if width == -1:
     return message
-
   message = message.replace('\t', '    ')
   wrap_area = width - header_size
   messagebuf = ''
@@ -255,18 +252,6 @@ def parse_start_proc(line):
 def tag_in_tags_regex(tag, tags):  
   return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
 
-# Print message
-def print_message(linebuf, message):
-    linebuf += indent_wrap(message)
-    print(linebuf.encode('utf-8'))
-
-# Print message in JSON format
-def print_json_message(linebuf, message):
-    for line in message.splitlines():
-        temp_linebuf = linebuf
-        temp_linebuf += indent_wrap(line)
-        print(temp_linebuf.encode('utf-8'))
-
 ps_command = base_adb_command + ['shell', 'ps']
 ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 while True:
@@ -353,8 +338,8 @@ while adb.poll() is None:
     if tag != last_tag or args.always_tags:
       last_tag = tag
       color = allocate_color(tag)
-      formatted_tag = tag[-args.tag_width:].rjust(args.tag_width)
-      linebuf += colorize(formatted_tag, fg=color)
+      tag = tag[-args.tag_width:].rjust(args.tag_width)
+      linebuf += colorize(tag, fg=color)
     else:
       linebuf += ' ' * args.tag_width
     linebuf += ' '
@@ -370,21 +355,6 @@ while adb.poll() is None:
   for matcher in RULES:
     replace = RULES[matcher]
     message = matcher.sub(replace, message)
-  
-  # format tag message to JSON form
-  if args.json_tag and tag_in_tags_regex(tag, args.json_tag):
-    try:
-        json_message = json.loads(message)
-        message = json.dumps(json_message, indent=4, sort_keys=True)
-        print_json_message(linebuf, message)
-    except ValueError:
-        print_message(linebuf, message)
-    
-  else:
-    print_message(linebuf, message)
 
-
-
-
-
-
+  linebuf += indent_wrap(message)
+  print(linebuf.encode('utf-8'))
