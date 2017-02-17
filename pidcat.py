@@ -196,7 +196,7 @@ class FakeStdinProcess():
     return None
 
 if sys.stdin.isatty():
-  adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+  adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE)
 else:
   adb = FakeStdinProcess()
 pids = set()
