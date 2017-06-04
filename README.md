@@ -34,6 +34,8 @@ Get the script:
         brew unlink pidcat  
         brew install --HEAD pidcat
   
+ * Arch Linux : Install the package called `pidcat-git` from the [AUR][4].
+ 
  * Others: Download the `pidcat.py` and place it on your PATH.
 
 
@@ -53,3 +55,4 @@ Include these lines in your `.bashrc` or `.zshrc`.
  [1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/
  [2]: http://brew.sh
  [3]: http://developer.android.com/sdk/
+ [4]: https://aur.archlinux.org/packages/pidcat-git/
