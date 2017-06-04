@@ -1,0 +1,38 @@
+# This list provides various ignore tags. Comment the ones you don't want to ignore, or add new ones.
+
+# System generic tags
+
+InputEventReceiver
+Perf
+Performance
+PhoneWindow
+PowerManager
+SQLiteDatabase
+ViewRootImpl
+
+
+# Ignore GPU related garbage
+
+Adreno200-EGL
+Adreno-EGL
+OpenGLRenderer
+
+
+# Other Drivers info
+
+PrintK
+SensorManager
+
+
+# Genymotion Ignore list
+
+EGL_emulation
+EGL_genymotion
+libEGL
+
+
+# Ignore low-level logging
+
+art
+libc
+qdmemalloc

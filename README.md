@@ -1,3 +1,9 @@
+# About
+
+This is a slightly modified version of the [original Pidcat](https://github.com/JakeWharton/pidcat). This version is kept up-to-date with the original one and essentially simply makes `python2` the standard for execution so it plays well with Arch Linux based distros.
+
+
+
 PID Cat
 =======
 
@@ -23,33 +29,8 @@ Here is an example of the output when running for the Google Plus app:
 Install
 -------
 
-Get the script:
 
- *  OS X: Use [Homebrew][2].
-
-         brew install pidcat
-
-    If you need to install the latest development version
-
-        brew unlink pidcat  
-        brew install --HEAD pidcat
-  
- * Others: Download the `pidcat.py` and place it on your PATH.
-
-
-Make sure that `adb` from the [Android SDK][3] is on your PATH. This script will
-not work unless this is that case. That means, when you type `adb` and press
-enter into your terminal something actually happens.
-
-To include `adb` and other android tools on your path:
-
-    export PATH=$PATH:<path to Android SDK>/platform-tools
-    export PATH=$PATH:<path to Android SDK>/tools
-
-Include these lines in your `.bashrc` or `.zshrc`.
 
 *Note:* `<path to Android SDK>` should be absolute and not relative.
 
- [1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/
- [2]: http://brew.sh
- [3]: http://developer.android.com/sdk/
+[1]: http://jsharkey.org/blog/2009/04/22/modifying-the-android-logcat-stream-for-full-color-debugging/

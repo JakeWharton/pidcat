@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 
 '''
 Copyright 2009, The Android Open Source Project
@@ -46,6 +46,7 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+parser.add_argument('-il', '--ignore-list', dest='ignore_list', action='append', help='Filter by ignore list file')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -127,6 +128,13 @@ KNOWN_TAGS = {
   'StrictMode': WHITE,
   'DEBUG': YELLOW,
 }
+
+
+IGNORE_TAGS = []
+
+if args.ignore_list:
+    IGNORE_TAGS += [line for line in open(args.ignore_list[0], 'r').read().split("\n") if not line.startswith("#") and line.strip()]
+
 
 def allocate_color(tag):
   # this will allocate a unique format for the given tag
@@ -329,6 +337,8 @@ while adb.poll() is None:
   if args.ignored_tag and tag_in_tags_regex(tag, args.ignored_tag):
     continue
   if args.tag and not tag_in_tags_regex(tag, args.tag):
+      continue
+  if args.ignore_list and tag.strip() in IGNORE_TAGS:
     continue
 
   linebuf = ''
