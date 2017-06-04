@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 
 '''
 Copyright 2009, The Android Open Source Project
