@@ -24,6 +24,7 @@ limitations under the License.
 import argparse
 import sys
 import re
+import os
 import subprocess
 from subprocess import PIPE
 
@@ -46,6 +47,7 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+parser.add_argument('--timestamp', dest='timestamp', action='store_true', default=False, help='Display the timestamp (only the minutes:seconds.miliseconds)')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -76,7 +78,7 @@ named_processes = filter(lambda package: package.find(":") != -1, package)
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
-header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+header_size = args.tag_width + 1 + 3 + 1 + (12 if args.timestamp else 0)# space, level, space
 
 width = -1
 try:
@@ -128,6 +130,8 @@ KNOWN_TAGS = {
   'DEBUG': YELLOW,
 }
 
+ENV_IGNORED_TAGS = os.getenv('PIDCAT_IGNORED_TAGS',"").split(';')
+
 def allocate_color(tag):
   # this will allocate a unique format for the given tag
   # since we dont have very many colors, we always keep track of the LRU
@@ -168,17 +172,21 @@ PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.
 PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_START_5_1 = re.compile(r'^.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
-PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
-PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
-PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
-BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
+PID_KILL    = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
+PID_LEAVE   = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
+PID_DEATH   = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
+LOG_LINE    = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+LOG_LINE_TS = re.compile(r'^[0-9]{2}-[0-9]{2} [0-9]{2}:([0-9]{2}:[0-9]{2}\.[0-9]{3}) ([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+BUG_LINE    = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
-adb_command.extend(['-v', 'brief'])
-
+if args.timestamp:
+  adb_command.extend(['-v', 'time'])
+else:
+  adb_command.extend(['-v', 'brief'])
+  
 # Clear log before starting logcat
 if args.clear_logcat:
   adb_clear_command = list(adb_command)
@@ -281,12 +289,18 @@ while adb.poll() is None:
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
     continue
-
-  log_line = LOG_LINE.match(line)
+  
+  if args.timestamp :
+	log_line = LOG_LINE_TS.match(line)
+  else:
+    log_line = LOG_LINE.match(line)
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  if args.timestamp :
+	time, level, tag, owner, message = log_line.groups()
+  else:
+	level, tag, owner, message = log_line.groups()
   tag = tag.strip()
   start = parse_start_proc(line)
   if start:
@@ -330,7 +344,9 @@ while adb.poll() is None:
     continue
   if args.tag and not tag_in_tags_regex(tag, args.tag):
     continue
-
+  if tag_in_tags_regex(tag, ENV_IGNORED_TAGS):
+	continue
+    
   linebuf = ''
 
   if args.tag_width > 0:
@@ -350,6 +366,10 @@ while adb.poll() is None:
   else:
     linebuf += ' ' + level + ' '
   linebuf += ' '
+  
+  # write out timestamps
+  if args.timestamp :
+	linebuf += ' ' + time + '  '
 
   # format tag message using rules
   for matcher in RULES:
