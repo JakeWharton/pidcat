@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 
 '''
 Copyright 2009, The Android Open Source Project
@@ -33,6 +33,7 @@ LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
 parser = argparse.ArgumentParser(description='Filter logcat by package name')
 parser.add_argument('package', nargs='*', help='Application package name(s)')
+parser.add_argument('-f', '--input-file', dest='input_file', type=argparse.FileType('r'), default=None, help='Read input from FILE, instead of starting adb.')
 parser.add_argument('-w', '--tag-width', metavar='N', dest='tag_width', type=int, default=23, help='Width of log tag')
 parser.add_argument('-l', '--min-level', dest='min_level', type=str, choices=LOG_LEVELS+LOG_LEVELS.lower(), default='V', help='Minimum level to be displayed')
 parser.add_argument('--color-gc', dest='color_gc', action='store_true', help='Color garbage collection')
@@ -52,19 +53,20 @@ min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
 package = args.package
 
-base_adb_command = ['adb']
-if args.device_serial:
-  base_adb_command.extend(['-s', args.device_serial])
-if args.use_device:
-  base_adb_command.append('-d')
-if args.use_emulator:
-  base_adb_command.append('-e')
+if args.input_file is None:
+    base_adb_command = ['adb']
+    if args.device_serial:
+      base_adb_command.extend(['-s', args.device_serial])
+    if args.use_device:
+      base_adb_command.append('-d')
+    if args.use_emulator:
+      base_adb_command.append('-e')
 
-if args.current_app:
-  system_dump_command = base_adb_command + ["shell", "dumpsys", "activity", "activities"]
-  system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
-  running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
-  package.append(running_package_name)
+    if args.current_app:
+      system_dump_command = base_adb_command + ["shell", "dumpsys", "activity", "activities"]
+      system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
+      running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
+      package.append(running_package_name)
 
 if len(package) == 0:
   args.all = True
@@ -175,30 +177,31 @@ LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
-adb_command = base_adb_command[:]
-adb_command.append('logcat')
-adb_command.extend(['-v', 'brief'])
+if args.input_file is None:
+    adb_command = base_adb_command[:]
+    adb_command.append('logcat')
+    adb_command.extend(['-v', 'brief'])
 
-# Clear log before starting logcat
-if args.clear_logcat:
-  adb_clear_command = list(adb_command)
-  adb_clear_command.append('-c')
-  adb_clear = subprocess.Popen(adb_clear_command)
+    # Clear log before starting logcat
+    if args.clear_logcat:
+      adb_clear_command = list(adb_command)
+      adb_clear_command.append('-c')
+      adb_clear = subprocess.Popen(adb_clear_command)
 
-  while adb_clear.poll() is None:
-    pass
+      while adb_clear.poll() is None:
+        pass
 
-# This is a ducktype of the subprocess.Popen object
-class FakeStdinProcess():
-  def __init__(self):
-    self.stdout = sys.stdin
-  def poll(self):
-    return None
+    # This is a ducktype of the subprocess.Popen object
+    class FakeStdinProcess():
+      def __init__(self):
+        self.stdout = sys.stdin
+      def poll(self):
+        return None
 
-if sys.stdin.isatty():
-  adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE)
-else:
-  adb = FakeStdinProcess()
+    if sys.stdin.isatty():
+      adb = subprocess.Popen(adb_command, stdin=PIPE, stdout=PIPE)
+    else:
+      adb = FakeStdinProcess()
 pids = set()
 last_tag = None
 app_pid = None
@@ -252,39 +255,18 @@ def parse_start_proc(line):
 def tag_in_tags_regex(tag, tags):  
   return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
 
-ps_command = base_adb_command + ['shell', 'ps']
-ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-while True:
-  try:
-    line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
-  except KeyboardInterrupt:
-    break
-  if len(line) == 0:
-    break
+last_tag = None
 
-  pid_match = PID_LINE.match(line)
-  if pid_match is not None:
-    pid = pid_match.group(1)
-    proc = pid_match.group(2)
-    if proc in catchall_package:
-      seen_pids = True
-      pids.add(pid)
-
-while adb.poll() is None:
-  try:
-    line = adb.stdout.readline().decode('utf-8', 'replace').strip()
-  except KeyboardInterrupt:
-    break
-  if len(line) == 0:
-    break
+def parse_line(line):
+  global last_tag
 
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
-    continue
+    return
 
   log_line = LOG_LINE.match(line)
   if log_line is None:
-    continue
+    return
 
   level, tag, owner, message = log_line.groups()
   tag = tag.strip()
@@ -323,13 +305,13 @@ while adb.poll() is None:
       owner = app_pid
 
   if not args.all and owner not in pids:
-    continue
+    return
   if level in LOG_LEVELS_MAP and LOG_LEVELS_MAP[level] < min_level:
-    continue
+    return
   if args.ignored_tag and tag_in_tags_regex(tag, args.ignored_tag):
-    continue
+    return
   if args.tag and not tag_in_tags_regex(tag, args.tag):
-    continue
+    return
 
   linebuf = ''
 
@@ -358,3 +340,45 @@ while adb.poll() is None:
 
   linebuf += indent_wrap(message)
   print(linebuf.encode('utf-8'))
+
+
+if args.input_file is None:
+  ps_command = base_adb_command + ['shell', 'ps']
+  ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+  while True:
+    try:
+      line = ps_pid.stdout.readline().decode('utf-8', 'replace').strip()
+    except KeyboardInterrupt:
+      break
+    if len(line) == 0:
+      break
+
+    pid_match = PID_LINE.match(line)
+    if pid_match is not None:
+      pid = pid_match.group(1)
+      proc = pid_match.group(2)
+      if proc in catchall_package:
+        seen_pids = True
+        pids.add(pid)
+
+
+  while adb.poll() is None:
+    try:
+      line = adb.stdout.readline().decode('utf-8', 'replace').strip()
+    except KeyboardInterrupt:
+      break
+    if len(line) == 0:
+      break
+
+    parse_line(line)
+else:
+  while True:
+    try:
+      line = args.input_file.readline().decode('utf-8', 'replace').strip()
+    except KeyboardInterrupt:
+      break
+    if len(line) == 0:
+      break
+
+    parse_line(line)
+
