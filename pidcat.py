@@ -164,7 +164,7 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.|\/]+)$')
+PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.|:|\/]+)$')
 PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
 PID_START_5_1 = re.compile(r'^.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
 PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
@@ -249,7 +249,7 @@ def parse_start_proc(line):
     return line_package, '', line_pid, line_uid, ''
   return None
 
-def tag_in_tags_regex(tag, tags):  
+def tag_in_tags_regex(tag, tags):
   return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
 
 ps_command = base_adb_command + ['shell', 'ps']
@@ -266,7 +266,9 @@ while True:
   if pid_match is not None:
     pid = pid_match.group(1)
     proc = pid_match.group(2)
-    if proc in catchall_package:
+    index = proc.find(':')
+    keep = (proc in catchall_package) if index == -1 else (proc[:index] in catchall_package)
+    if keep:
       seen_pids = True
       pids.add(pid)
 
