@@ -1,4 +1,4 @@
-PID Cat
+PID Cat with [Windows 10 VT100 support](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences)
 =======
 
 An update to Jeff Sharkey's excellent [logcat color script][1] which only shows
@@ -25,6 +25,9 @@ Install
 
 Get the script:
 
+ * Windows: Download `pidcat.py` and `pidcat.cmd` and place them on your PATH.
+   Make sure you also have Python installed with `python.exe` on PATH.
+
  *  OS X: Use [Homebrew][2].
 
          brew install pidcat
@@ -43,12 +46,14 @@ Make sure that `adb` from the [Android SDK][3] is on your PATH. This script will
 not work unless this is that case. That means, when you type `adb` and press
 enter into your terminal something actually happens.
 
-To include `adb` and other android tools on your path:
+To include `adb` and other android tools on your path on OS X / Linux:
 
     export PATH=$PATH:<path to Android SDK>/platform-tools
     export PATH=$PATH:<path to Android SDK>/tools
 
 Include these lines in your `.bashrc` or `.zshrc`.
+
+On Widnows add `<path to Android SDK>/platform-tools` and `<path to Android SDK>/tools` to your PATH in [System Properties](https://support.microsoft.com/en-sg/help/310519/how-to-manage-environment-variables-in-windows-xp)
 
 *Note:* `<path to Android SDK>` should be absolute and not relative.
 

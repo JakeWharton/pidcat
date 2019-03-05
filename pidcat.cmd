@@ -1,0 +1,1 @@
+@python.exe "%~dp0\pidcat.py" %*

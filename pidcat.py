@@ -26,8 +26,13 @@ import sys
 import re
 import subprocess
 from subprocess import PIPE
+from ctypes import *
+from platform import win32_ver
 
-__version__ = '2.1.0'
+__version__ = '2.1.0+Win10'
+
+win_ver = win32_ver()[0]
+show_colors = (win_ver == '10' or win_ver == '') and sys.stdout.isatty()
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -46,11 +51,42 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+parser.add_argument('-o', '--output', dest='output', type=str, default='', help='Output filename')
+parser.add_argument('-n', '--no-color', dest='no_color', action='store_true', help='Disable colors')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
 
+if (args.no_color):
+  show_colors = False
+
 package = args.package
+
+
+# enabling Windows 10 VT100 support
+def enableVT100():
+  STD_OUTPUT_HANDLE = -11
+  ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4
+
+  stdout = windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+  if stdout == -1:
+    raise WinError()
+
+  mode = c_uint()
+  if windll.kernel32.GetConsoleMode(stdout, byref(mode)) == 0:
+    raise WinError()
+
+  mode.value = mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+
+  if windll.kernel32.SetConsoleMode(stdout, mode) == 0:
+    raise WinError()
+
+if (show_colors):
+  enableVT100()
+
+output_file = False
+if (args.output):
+  output_file = open(args.output, 'a+')
 
 base_adb_command = ['adb']
 if args.device_serial:
@@ -139,6 +175,13 @@ def allocate_color(tag):
     LAST_USED.append(color)
   return color
 
+NO_COLOR = re.compile(r'\033\[.*?m')
+
+def output(line):
+  line_nocolor = '' if show_colors and not output_file else NO_COLOR.sub('', line)
+  print(line if show_colors else line_nocolor)
+  if (output_file):
+    output_file.write(line_nocolor + '\n')
 
 RULES = {
   # StrictMode policy violation; ~duration=319 ms: android.os.StrictMode$StrictModeDiskWriteViolation: policy=31 violation=1
@@ -302,7 +345,7 @@ while adb.poll() is None:
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
       linebuf += ' PID: %s   UID: %s   GIDs: %s' % (line_pid, line_uid, line_gids)
       linebuf += '\n'
-      print(linebuf)
+      output(linebuf)
       last_tag = None # Ensure next log gets a tag printed
 
   dead_pid, dead_pname = parse_death(tag, message)
@@ -312,7 +355,7 @@ while adb.poll() is None:
     linebuf += colorize(' ' * (header_size - 1), bg=RED)
     linebuf += ' Process %s (PID: %s) ended' % (dead_pname, dead_pid)
     linebuf += '\n'
-    print(linebuf)
+    output(linebuf)
     last_tag = None # Ensure next log gets a tag printed
 
   # Make sure the backtrace is printed after a native crash
@@ -357,4 +400,7 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print(linebuf.encode('utf-8'))
+  output(linebuf.encode('utf-8'))
+
+if (output_file):
+  output_file.close()
