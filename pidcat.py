@@ -53,6 +53,7 @@ parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + _
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 parser.add_argument('-o', '--output', dest='output', type=str, default='', help='Output filename')
 parser.add_argument('-n', '--no-color', dest='no_color', action='store_true', help='Disable colors')
+parser.add_argument('-r', '--regex', dest='regex', type=str, help='Print only when matches REGEX and REGEX is regular expression logcat -e REGEX')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -221,6 +222,8 @@ BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
 adb_command.extend(['-v', 'brief'])
+if args.regex:
+  adb_command.extend(['-e',args.regex])
 
 # Clear log before starting logcat
 if args.clear_logcat:
