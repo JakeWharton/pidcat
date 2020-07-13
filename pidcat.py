@@ -22,6 +22,7 @@ limitations under the License.
 # Package filtering and output improvements by Jake Wharton, http://jakewharton.com
 
 import argparse
+import signal
 import sys
 import re
 import subprocess
@@ -46,6 +47,12 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+
+def signal_handler(sig, frame):
+  print('')
+  sys.exit(signal.SIGINT)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
