@@ -78,6 +78,8 @@ named_processes = map(lambda package: package if package.find(":") != len(packag
 
 header_size = args.tag_width + 1 + 3 + 1 # space, level, space
 
+stdout_isatty = sys.stdout.isatty()
+
 width = -1
 try:
   # Get the current terminal width
@@ -97,7 +99,7 @@ def termcolor(fg=None, bg=None):
   return '\033[%sm' % ';'.join(codes) if codes else ''
 
 def colorize(message, fg=None, bg=None):
-  return termcolor(fg, bg) + message + RESET
+  return termcolor(fg, bg) + message + RESET if stdout_isatty else message
 
 def indent_wrap(message):
   if width == -1:
@@ -249,7 +251,7 @@ def parse_start_proc(line):
     return line_package, '', line_pid, line_uid, ''
   return None
 
-def tag_in_tags_regex(tag, tags):  
+def tag_in_tags_regex(tag, tags):
   return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
 
 ps_command = base_adb_command + ['shell', 'ps']
