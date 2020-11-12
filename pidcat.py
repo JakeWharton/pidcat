@@ -1,4 +1,4 @@
-#!/usr/bin/env -S python -u
+#!/usr/bin/env -S python3 -u
 
 '''
 Copyright 2009, The Android Open Source Project
