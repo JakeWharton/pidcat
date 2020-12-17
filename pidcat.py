@@ -46,6 +46,7 @@ parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter out
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
+parser.add_argument('--lean', dest='lean', action='store_true', default=False, help='Ignore some formatting to ease copying messages from the terminal')
 
 args = parser.parse_args()
 min_level = LOG_LEVELS_MAP[args.min_level.upper()]
@@ -76,7 +77,7 @@ named_processes = filter(lambda package: package.find(":") != -1, package)
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
-header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+header_size = 0 if args.lean else args.tag_width + 1 + 3 + 1 # space, level, space
 
 stdout_isatty = sys.stdout.isatty()
 
@@ -104,7 +105,7 @@ def colorize(message, fg=None, bg=None):
 def indent_wrap(message):
   if width == -1:
     return message
-  message = message.replace('\t', '    ')
+  message = message.replace('\t', '    ') if not args.lean else message
   wrap_area = width - header_size
   messagebuf = ''
   current = 0
@@ -112,7 +113,7 @@ def indent_wrap(message):
     next = min(current + wrap_area, len(message))
     messagebuf += message[current:next]
     if next < len(message):
-      messagebuf += '\n'
+      messagebuf += '' if args.lean else '\n' 
       messagebuf += ' ' * header_size
     current = next
   return messagebuf
