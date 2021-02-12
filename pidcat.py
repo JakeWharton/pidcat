@@ -63,7 +63,7 @@ if args.use_emulator:
 if args.current_app:
   system_dump_command = base_adb_command + ["shell", "dumpsys", "activity", "activities"]
   system_dump = subprocess.Popen(system_dump_command, stdout=PIPE, stderr=PIPE).communicate()[0]
-  running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", system_dump).group(1)
+  running_package_name = re.search(".*TaskRecord.*A[= ]([^ ^}]*)", str(system_dump)).group(1)
   package.append(running_package_name)
 
 if len(package) == 0:
