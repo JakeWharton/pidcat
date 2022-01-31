@@ -70,9 +70,9 @@ if len(package) == 0:
   args.all = True
 
 # Store the names of packages for which to match all processes.
-catchall_package = filter(lambda package: package.find(":") == -1, package)
+catchall_package = list(filter(lambda package: package.find(":") == -1, package))
 # Store the name of processes to match exactly.
-named_processes = filter(lambda package: package.find(":") != -1, package)
+named_processes = list(filter(lambda package: package.find(":") != -1, package))
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
