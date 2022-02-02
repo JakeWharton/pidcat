@@ -15,8 +15,14 @@ function _pidcat()
   # so that the list of installed packaged can be fetched from the device
 
   case "${prev}" in
-      -d|-e|--device|--emulator)
+      -d|-e)
           device_selected="${prev}"
+          ;;
+      --device)
+          device_selected="-d"
+          ;;
+      --emulator)
+          device_selected="-e"
           ;;
   esac
 
@@ -27,11 +33,11 @@ function _pidcat()
           ;;
   esac
 
-  if [ -z "$device_selected" ]; then
+  if [ -z "$device_selected" ] && [ "$prev" != "-s" ]; then
       local num_devices=$(( $(adb devices 2>/dev/null|wc -l) - 2 ))
       if [ "$num_devices" -gt "1" ]; then
           # With multiple devices, you must choose a device first.
-          COMPREPLY=( $(compgen -W "-d -e -s --device --emulator --serial" -- ${cur}) )
+          COMPREPLY=( $(compgen -W "-s" -- ${cur}) )
           return 0
       fi
   fi
@@ -57,8 +63,13 @@ function _pidcat()
           ;;
   esac
 
-  # if we can get the package names, then use those
-  local apks=$(adb $device_selected shell ls /data/data 2>/dev/null | tr '\n' ' ' | tr -d '\r')
+  # Try three methods for getting appIDs, at least one should work on all devices.
+  # Filter stderr on device/emulator to reduce data coming back from adb.
+  # Filter stderr on this machine to prevent adb errors from showing from tab completion
+  local apks=$(adb $device_selected shell '(pm package list packages -3; cmd package list packages -3; ps) 2> /dev/null' 2> /dev/null \
+      | sed -n -e 's,^u[0-9].* \([^/][^/]*$\),\1,p' -e 's,^package:,,p' \
+      | tr '\n' ' ' \
+      | tr -d '\r' )
   COMPREPLY=( $(compgen -W "$apks" -- ${cur}) )
   return 0
 }
