@@ -175,6 +175,8 @@ PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
 PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
 LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
 BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
+BUG_LINE2  = re.compile(r'.*glUtilsParamSize.*')
+BUG_LINE3  = re.compile(r'.*glSizeof.*')
 BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
 
 adb_command = base_adb_command[:]
@@ -282,6 +284,12 @@ while adb.poll() is None:
 
   bug_line = BUG_LINE.match(line)
   if bug_line is not None:
+    continue
+  bug_line2 = BUG_LINE2.match(line)
+  if bug_line2 is not None:
+    continue
+  bug_line3 = BUG_LINE3.match(line)
+  if bug_line3 is not None:
     continue
 
   log_line = LOG_LINE.match(line)
