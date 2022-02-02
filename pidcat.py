@@ -45,6 +45,7 @@ parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', h
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
+parser.add_argument('--time', dest='time', action='store_true', default=False, help='Print time')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 
 args = parser.parse_args()
@@ -76,7 +77,7 @@ named_processes = list(filter(lambda package: package.find(":") != -1, package))
 # Convert default process names from <package>: (cli notation) to <package> (android notation) in the exact names match group.
 named_processes = map(lambda package: package if package.find(":") != len(package) - 1 else package[:-1], named_processes)
 
-header_size = args.tag_width + 1 + 3 + 1 # space, level, space
+header_size = args.tag_width + 1 + 3 + 1 + (18 if args.time else 0) # space, level, space
 
 stdout_isatty = sys.stdout.isatty()
 
@@ -166,20 +167,21 @@ TAGTYPES = {
   'F': colorize(' F ', fg=BLACK, bg=RED),
 }
 
-PID_LINE = re.compile(r'^\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.|\/]+)$')
-PID_START = re.compile(r'^.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
-PID_START_5_1 = re.compile(r'^.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
-PID_START_DALVIK = re.compile(r'^E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
-PID_KILL  = re.compile(r'^Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
-PID_LEAVE = re.compile(r'^No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
-PID_DEATH = re.compile(r'^Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
-LOG_LINE  = re.compile(r'^([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
-BUG_LINE  = re.compile(r'.*nativeGetEnabledTags.*')
-BACKTRACE_LINE = re.compile(r'^#(.*?)pc\s(.*?)$')
+TIME_FORMAT = r'^(\d+-\d+\s+\d+:\d+:\d+\.\d+\s+)?'
+PID_LINE = re.compile(TIME_FORMAT+r'\w+\s+(\w+)\s+\w+\s+\w+\s+\w+\s+\w+\s+\w+\s+\w\s([\w|\.|\/]+)$')
+PID_START = re.compile(TIME_FORMAT+r'.*: Start proc ([a-zA-Z0-9._:]+) for ([a-z]+ [^:]+): pid=(\d+) uid=(\d+) gids=(.*)$')
+PID_START_5_1 = re.compile(TIME_FORMAT+r'.*: Start proc (\d+):([a-zA-Z0-9._:]+)/[a-z0-9]+ for (.*)$')
+PID_START_DALVIK = re.compile(TIME_FORMAT+r'E/dalvikvm\(\s*(\d+)\): >>>>> ([a-zA-Z0-9._:]+) \[ userId:0 \| appId:(\d+) \]$')
+PID_KILL  = re.compile(TIME_FORMAT+r'Killing (\d+):([a-zA-Z0-9._:]+)/[^:]+: (.*)$')
+PID_LEAVE = re.compile(TIME_FORMAT+r'No longer want ([a-zA-Z0-9._:]+) \(pid (\d+)\): .*$')
+PID_DEATH = re.compile(TIME_FORMAT+r'Process ([a-zA-Z0-9._:]+) \(pid (\d+)\) has died.?$')
+LOG_LINE  = re.compile(TIME_FORMAT+r'([A-Z])/(.+?)\( *(\d+)\): (.*?)$')
+BUG_LINE  = re.compile(TIME_FORMAT+r'.*nativeGetEnabledTags.*')
+BACKTRACE_LINE = re.compile(TIME_FORMAT+r'#(.*?)pc\s(.*?)$')
 
 adb_command = base_adb_command[:]
 adb_command.append('logcat')
-adb_command.extend(['-v', 'brief'])
+adb_command.extend(['-v', 'time'])
 
 # Clear log before starting logcat
 if args.clear_logcat:
@@ -218,20 +220,20 @@ def parse_death(tag, message):
     return None, None
   kill = PID_KILL.match(message)
   if kill:
-    pid = kill.group(1)
-    package_line = kill.group(2)
+    pid = kill.group(2)
+    package_line = kill.group(3)
     if match_packages(package_line) and pid in pids:
       return pid, package_line
   leave = PID_LEAVE.match(message)
   if leave:
-    pid = leave.group(2)
-    package_line = leave.group(1)
+    pid = leave.group(3)
+    package_line = leave.group(2)
     if match_packages(package_line) and pid in pids:
       return pid, package_line
   death = PID_DEATH.match(message)
   if death:
-    pid = death.group(2)
-    package_line = death.group(1)
+    pid = death.group(3)
+    package_line = death.group(2)
     if match_packages(package_line) and pid in pids:
       return pid, package_line
   return None, None
@@ -239,15 +241,15 @@ def parse_death(tag, message):
 def parse_start_proc(line):
   start = PID_START_5_1.match(line)
   if start is not None:
-    line_pid, line_package, target = start.groups()
+    line_time, line_pid, line_package, target = start.groups()
     return line_package, target, line_pid, '', ''
   start = PID_START.match(line)
   if start is not None:
-    line_package, target, line_pid, line_uid, line_gids = start.groups()
+    line_time, line_package, target, line_pid, line_uid, line_gids = start.groups()
     return line_package, target, line_pid, line_uid, line_gids
   start = PID_START_DALVIK.match(line)
   if start is not None:
-    line_pid, line_package, line_uid = start.groups()
+    line_time, line_pid, line_package, line_uid = start.groups()
     return line_package, '', line_pid, line_uid, ''
   return None
 
@@ -266,8 +268,8 @@ while True:
 
   pid_match = PID_LINE.match(line)
   if pid_match is not None:
-    pid = pid_match.group(1)
-    proc = pid_match.group(2)
+    pid = pid_match.group(2)
+    proc = pid_match.group(3)
     if proc in catchall_package:
       seen_pids = True
       pids.add(pid)
@@ -288,7 +290,7 @@ while adb.poll() is None:
   if log_line is None:
     continue
 
-  level, tag, owner, message = log_line.groups()
+  line_time, level, tag, owner, message = log_line.groups()
   tag = tag.strip()
   start = parse_start_proc(line)
   if start:
@@ -299,6 +301,7 @@ while adb.poll() is None:
       app_pid = line_pid
 
       linebuf  = '\n'
+      linebuf += line_time if args.time and line_time != None else ''
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
       linebuf += indent_wrap(' Process %s created for %s\n' % (line_package, target))
       linebuf += colorize(' ' * (header_size - 1), bg=WHITE)
@@ -333,7 +336,7 @@ while adb.poll() is None:
   if args.tag and not tag_in_tags_regex(tag, args.tag):
     continue
 
-  linebuf = ''
+  linebuf = line_time if args.time and line_time != None else ''
 
   if args.tag_width > 0:
     # right-align tag title and allocate color if needed
