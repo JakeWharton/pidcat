@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 2.1.0+Win10 *(2019-03-05)*
+----------------------------
+
+ * New: Colors on Windows 10 thanks to [Windows 10 VT100 support](https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences)
+ * New: `-o` / `--output` flag to [tee](https://en.wikipedia.org/wiki/tee_(command)) output to a file while simultaneously displaying it in the console.
+ * New: `-n` / `--no-color` flag to disable colors altogether.
+
 Version 2.1.0 *(2016-09-07)*
 ----------------------------
 
