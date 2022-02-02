@@ -24,6 +24,7 @@ limitations under the License.
 import argparse
 import sys
 import re
+import os
 import subprocess
 from subprocess import PIPE
 
@@ -129,6 +130,8 @@ KNOWN_TAGS = {
   'StrictMode': WHITE,
   'DEBUG': YELLOW,
 }
+
+ENV_IGNORED_TAGS = os.getenv('PIDCAT_IGNORED_TAGS',"").split(';')
 
 def allocate_color(tag):
   # this will allocate a unique format for the given tag
@@ -332,7 +335,9 @@ while adb.poll() is None:
     continue
   if args.tag and not tag_in_tags_regex(tag, args.tag):
     continue
-
+  if tag_in_tags_regex(tag, ENV_IGNORED_TAGS):
+    continue
+    
   linebuf = ''
 
   if args.tag_width > 0:
