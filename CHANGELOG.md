@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 2.1.1 *(2022-03-08)*
+----------------------------
+
+ * Fix: Iteration calls are now compatible with Python 3.
+ * Fix: Color encoding is now compatible with Python 3.
+
+
 Version 2.1.0 *(2016-09-07)*
 ----------------------------
 
