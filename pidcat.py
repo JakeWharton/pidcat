@@ -27,7 +27,7 @@ import re
 import subprocess
 from subprocess import PIPE
 
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 
 LOG_LEVELS = 'VDIWEF'
 LOG_LEVELS_MAP = dict([(LOG_LEVELS[i], i) for i in range(len(LOG_LEVELS))])
@@ -359,4 +359,4 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print(linebuf.encode('utf-8'))
+  print(linebuf)
