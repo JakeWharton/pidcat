@@ -359,4 +359,7 @@ while adb.poll() is None:
     message = matcher.sub(replace, message)
 
   linebuf += indent_wrap(message)
-  print(linebuf.encode('utf-8'))
+  if sys.stdout.encoding.upper() not in ['UTF-8', 'UTF8']:
+    print(linebuf.encode('utf-8'))
+  else:
+    print(linebuf)
