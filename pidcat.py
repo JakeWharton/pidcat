@@ -44,6 +44,7 @@ parser.add_argument('-e', '--emulator', dest='use_emulator', action='store_true'
 parser.add_argument('-c', '--clear', dest='clear_logcat', action='store_true', help='Clear the entire log before running')
 parser.add_argument('-t', '--tag', dest='tag', action='append', help='Filter output by specified tag(s)')
 parser.add_argument('-i', '--ignore-tag', dest='ignored_tag', action='append', help='Filter output by ignoring specified tag(s)')
+parser.add_argument('-m', '--msgs', dest='msg', action='append', help='Only output messages with regex(s)')
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Print the version number and exit')
 parser.add_argument('-a', '--all', dest='all', action='store_true', default=False, help='Print all log messages')
 
@@ -254,6 +255,9 @@ def parse_start_proc(line):
 def tag_in_tags_regex(tag, tags):
   return any(re.match(r'^' + t + r'$', tag) for t in map(str.strip, tags))
 
+def msg_in_msgs_regex(msg, msgs):
+  return any(re.match('.*' + t + r'.*', msg) for t in map(str.strip, msgs))
+
 ps_command = base_adb_command + ['shell', 'ps']
 ps_pid = subprocess.Popen(ps_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 while True:
@@ -331,6 +335,8 @@ while adb.poll() is None:
   if args.ignored_tag and tag_in_tags_regex(tag, args.ignored_tag):
     continue
   if args.tag and not tag_in_tags_regex(tag, args.tag):
+    continue
+  if args.msg and not msg_in_msgs_regex(message, args.msg):
     continue
 
   linebuf = ''
